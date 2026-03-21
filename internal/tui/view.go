@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/lipgloss"
+	"github.com/nopecho/claude-television/internal/channel"
 )
 
 func (m model) View() string {
@@ -19,6 +22,12 @@ func (m model) View() string {
 	header := titleStyle.Render("ctv") + " "
 	if m.searching {
 		header += searchStyle.Render("/ " + m.searchQuery + "█")
+	} else if m.contentSearching {
+		header += searchStyle.Render("? " + m.searchQuery + "█") + " " + labelStyle.Render("(content)")
+	} else if m.grouping {
+		header += searchStyle.Render("group: " + m.searchQuery + "█") + " " + labelStyle.Render("(enter to set, empty to clear)")
+	} else {
+		header += m.renderSummary()
 	}
 	header += "\n"
 
@@ -31,9 +40,37 @@ func (m model) View() string {
 
 	content := lipgloss.JoinHorizontal(lipgloss.Top, list, detail)
 
-	help := helpStyle.Render("  j/k move  ←→/Tab switch tab  / search  Ctrl+d/u scroll  Alt+Enter cd  p pin  e edit  q quit")
+	help := helpStyle.Render("  j/k move  ←→/Tab switch  / search  ? content  g group  p pin  e edit  Alt+Enter cd  q quit")
 
 	return header + content + "\n" + help
+}
+
+func (m model) renderSummary() string {
+	healthy, warning, errCount, issues := 0, 0, 0, 0
+	for _, ch := range m.channels {
+		if ch.IsGlobal {
+			continue
+		}
+		switch ch.Status {
+		case channel.StatusHealthy:
+			healthy++
+		case channel.StatusWarning:
+			warning++
+		case channel.StatusError:
+			errCount++
+		}
+		if ch.Data != nil {
+			issues += len(ch.Data.HealthIssues)
+		}
+	}
+	summary := labelStyle.Render(fmt.Sprintf("%d channels", healthy+warning+errCount))
+	if errCount > 0 {
+		summary += " " + lipgloss.NewStyle().Foreground(errorColor).Render(fmt.Sprintf("%d err", errCount))
+	}
+	if issues > 0 {
+		summary += " " + lipgloss.NewStyle().Foreground(warningColor).Render(fmt.Sprintf("%d issues", issues))
+	}
+	return summary
 }
 
 func (m model) renderDetailTabs() string {

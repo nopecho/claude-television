@@ -77,6 +77,43 @@ func TestCacheNewFileDetection(t *testing.T) {
 	}
 }
 
+func TestCache_LoadIfValid(t *testing.T) {
+	dir := t.TempDir()
+	cache := NewCache(dir, 24*time.Hour)
+
+	trackedFile := filepath.Join(dir, "tracked.json")
+	os.WriteFile(trackedFile, []byte("{}"), 0644)
+	info, _ := os.Stat(trackedFile)
+
+	entry := &CacheEntry{
+		ChannelID:  "test",
+		Data:       ChannelData{ClaudeMD: &claude.ClaudeMD{Path: "/test", LineCount: 5}},
+		FileMtimes: map[string]time.Time{trackedFile: info.ModTime()},
+	}
+	cache.Save(entry)
+
+	// Valid cache returns entry
+	got, valid := cache.LoadIfValid("test", []string{trackedFile})
+	if !valid {
+		t.Fatal("expected cache to be valid")
+	}
+	if got == nil {
+		t.Fatal("expected non-nil entry")
+	}
+	if got.Data.ClaudeMD == nil || got.Data.ClaudeMD.LineCount != 5 {
+		t.Errorf("unexpected data in cached entry")
+	}
+
+	// Missing cache returns nil/false
+	got, valid = cache.LoadIfValid("nonexistent", nil)
+	if valid {
+		t.Error("expected invalid for missing cache")
+	}
+	if got != nil {
+		t.Error("expected nil entry for missing cache")
+	}
+}
+
 func TestCacheTTLExpiry(t *testing.T) {
 	dir := t.TempDir()
 	cache := NewCache(dir, 1*time.Millisecond)

@@ -53,7 +53,10 @@ var rootCmd = &cobra.Command{
 
 		channel.SaveRegistry(reg, regPath)
 
-		return tui.RunChannels(reg.Channels, cfg)
+		globalCh := loadGlobalChannel(claudeHome)
+		allChannels := append([]channel.Channel{globalCh}, reg.Channels...)
+
+		return tui.RunChannels(allChannels, cfg)
 	},
 }
 

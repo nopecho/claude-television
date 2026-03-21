@@ -21,6 +21,8 @@ const (
 	keyEdit
 	keyScrollDown
 	keyScrollUp
+	keyContentSearch
+	keyGroup
 )
 
 func parseKey(msg tea.KeyMsg) keyAction {
@@ -55,6 +57,10 @@ func parseKey(msg tea.KeyMsg) keyAction {
 		return keyScrollDown
 	case "ctrl+u":
 		return keyScrollUp
+	case "?":
+		return keyContentSearch
+	case "g":
+		return keyGroup
 	}
 	return keyNone
 }

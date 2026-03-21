@@ -13,8 +13,11 @@ import (
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if m.searching {
+		if m.searching || m.contentSearching {
 			return m.updateSearch(msg)
+		}
+		if m.grouping {
+			return m.updateGrouping(msg)
 		}
 		return m.updateNormal(msg)
 	case tea.WindowSizeMsg:
@@ -51,6 +54,15 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case keySlash:
 		m.searching = true
 		m.searchQuery = ""
+	case keyContentSearch:
+		m.contentSearching = true
+		m.searchQuery = ""
+	case keyGroup:
+		ch := m.selectedChannel()
+		if ch != nil && !ch.IsGlobal {
+			m.grouping = true
+			m.searchQuery = ch.Group
+		}
 	case keyCmdEnter:
 		ch := m.selectedChannel()
 		if ch != nil {
@@ -104,11 +116,13 @@ func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		m.searching = false
+		m.contentSearching = false
 		m.searchQuery = ""
 		m.resetFilter()
 		m.channelCursor = 0
 	case "enter":
 		m.searching = false
+		m.contentSearching = false
 	case "backspace":
 		if len(m.searchQuery) > 0 {
 			m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
@@ -128,7 +142,13 @@ func (m *model) applySearch() {
 		m.resetFilter()
 		return
 	}
-	results := channel.FuzzySearch(m.channels, m.searchQuery)
+
+	var results []channel.Channel
+	if m.contentSearching {
+		results = channel.ContentSearch(m.channels, m.searchQuery)
+	} else {
+		results = channel.FuzzySearch(m.channels, m.searchQuery)
+	}
 	if len(results) == 0 {
 		m.filtered = []int{}
 		m.channelCursor = 0
@@ -148,6 +168,44 @@ func (m *model) applySearch() {
 	}
 	m.channelCursor = 0
 	m.detailScroll = 0
+}
+
+func (m model) updateGrouping(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.grouping = false
+		m.searchQuery = ""
+	case "enter":
+		ch := m.selectedChannel()
+		if ch != nil {
+			ch.Group = m.searchQuery
+			m.updateGroups()
+			m.sortChannels()
+			m.resetFilter()
+		}
+		m.grouping = false
+		m.searchQuery = ""
+	case "backspace":
+		if len(m.searchQuery) > 0 {
+			m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
+		}
+	default:
+		if len(msg.String()) == 1 {
+			m.searchQuery += msg.String()
+		}
+	}
+	return m, nil
+}
+
+func (m *model) updateGroups() {
+	groups := map[string][]string{}
+	for _, ch := range m.channels {
+		if ch.Group != "" && !ch.IsGlobal {
+			groups[ch.Group] = append(groups[ch.Group], ch.Name)
+		}
+	}
+	m.cfg.Channels.Groups = groups
+	config.Save(m.cfg)
 }
 
 func editTargetForTab(ch *channel.Channel, tab DetailTab) string {

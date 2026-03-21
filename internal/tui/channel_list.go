@@ -9,8 +9,6 @@ func (m model) renderChannelList(height int) string {
 	var b strings.Builder
 
 	count := len(m.filtered)
-	b.WriteString(headerStyle.Render(fmt.Sprintf(" CHANNELS (%d)", count)))
-	b.WriteString("\n\n")
 
 	if count == 0 {
 		b.WriteString(channelItemStyle.Render("  No channels found."))
@@ -50,7 +48,7 @@ func (m model) renderChannelList(height int) string {
 		}
 	}
 
-	visibleHeight := height - 3
+	visibleHeight := height - 1
 	if visibleHeight < 1 {
 		visibleHeight = 1
 	}
@@ -84,7 +82,7 @@ func (m model) renderChannelList(height int) string {
 			prefix = pinIcon + " "
 		}
 
-		name := truncate(ch.Name, 18)
+		name := truncate(ch.Name, 22)
 		line := fmt.Sprintf("%s%s %s", prefix, icon, name)
 
 		if channelIdx == m.channelCursor {

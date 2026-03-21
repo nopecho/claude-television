@@ -12,8 +12,8 @@ func (m model) renderSettingsTab(ch *channel.Channel) string {
 	var b strings.Builder
 
 	b.WriteString(section("Project"))
-	b.WriteString(kv("path", ch.Path) + "\n")
-	b.WriteString(kv("status", string(ch.Status)) + "\n")
+	b.WriteString(kv("path", ch.Path, 8) + "\n")
+	b.WriteString(kv("status", statusIconStr(ch.Status)+" "+string(ch.Status), 8) + "\n")
 
 	if ch.Data.Settings != nil {
 		b.WriteString(renderSettingsSection(ch.Data.Settings, "Project Settings"))
@@ -22,8 +22,7 @@ func (m model) renderSettingsTab(ch *channel.Channel) string {
 		b.WriteString(renderSettingsSection(ch.Data.LocalSettings, "Local Settings (override)"))
 	}
 	if ch.Data.Settings == nil && ch.Data.LocalSettings == nil {
-		b.WriteString(section("Settings"))
-		b.WriteString("    No settings.json found\n")
+		b.WriteString(emptyState("Settings", "No settings.json found", "Configure in .claude/settings.json"))
 	}
 	return b.String()
 }
@@ -31,36 +30,39 @@ func (m model) renderSettingsTab(ch *channel.Channel) string {
 func renderSettingsSection(s *claude.Settings, title string) string {
 	var b strings.Builder
 	b.WriteString(section(title))
+
 	if s.Model != "" {
-		b.WriteString(kv("model", s.Model) + "\n")
+		b.WriteString(kv("model", s.Model, 10) + "\n")
 	}
 	if s.Language != "" {
-		b.WriteString(kv("language", s.Language) + "\n")
+		b.WriteString(kv("language", s.Language, 10) + "\n")
 	}
 	if s.TeammateMode != "" {
-		b.WriteString(kv("teammate", s.TeammateMode) + "\n")
+		b.WriteString(kv("teammate", s.TeammateMode, 10) + "\n")
 	}
 	if s.PlansDirectory != "" {
-		b.WriteString(kv("plans dir", s.PlansDirectory) + "\n")
+		b.WriteString(kv("plans dir", s.PlansDirectory, 10) + "\n")
 	}
+
 	if len(s.Env) > 0 {
 		b.WriteString(section("Environment"))
 		for k, v := range s.Env {
-			b.WriteString(fmt.Sprintf("    %s = %s\n", k, v))
+			b.WriteString(sectionLine(fmt.Sprintf("  %s = %s", k, v)) + "\n")
 		}
 	}
+
 	if len(s.Permissions.Allow) > 0 || len(s.Permissions.Deny) > 0 {
 		b.WriteString(section("Permissions"))
 		if len(s.Permissions.Allow) > 0 {
-			b.WriteString(fmt.Sprintf("    Allow (%d):\n", len(s.Permissions.Allow)))
+			b.WriteString(sectionLine(fmt.Sprintf("  Allow (%d):", len(s.Permissions.Allow))) + "\n")
 			for _, p := range s.Permissions.Allow {
-				b.WriteString(fmt.Sprintf("      %s %s\n", statusHealthy, p))
+				b.WriteString(sectionLine(fmt.Sprintf("    %s %s", statusHealthy, p)) + "\n")
 			}
 		}
 		if len(s.Permissions.Deny) > 0 {
-			b.WriteString(fmt.Sprintf("    Deny (%d):\n", len(s.Permissions.Deny)))
+			b.WriteString(sectionLine(fmt.Sprintf("  Deny (%d):", len(s.Permissions.Deny))) + "\n")
 			for _, p := range s.Permissions.Deny {
-				b.WriteString(fmt.Sprintf("      %s %s\n", statusError, p))
+				b.WriteString(sectionLine(fmt.Sprintf("    %s %s", statusError, p)) + "\n")
 			}
 		}
 	}

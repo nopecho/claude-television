@@ -11,9 +11,7 @@ func (m model) renderHooksTab(ch *channel.Channel) string {
 	var b strings.Builder
 
 	if len(ch.Data.Hooks) == 0 {
-		b.WriteString(section("Hooks"))
-		b.WriteString("    No hooks registered\n")
-		return b.String()
+		return emptyState("Hooks", "No hooks registered", "Configure hooks in .claude/settings.json")
 	}
 
 	groups := map[string][]int{}
@@ -28,22 +26,23 @@ func (m model) renderHooksTab(ch *channel.Channel) string {
 	b.WriteString(section(fmt.Sprintf("Hooks (%d)", len(ch.Data.Hooks))))
 
 	for _, event := range order {
-		b.WriteString(fmt.Sprintf("\n    %s\n", headerStyle.Render(event)))
+		b.WriteString(sectionEmpty() + "\n")
+		b.WriteString(sectionLine(sectionTitleStyle.Render(event)) + "\n")
 		for _, idx := range groups[event] {
 			h := ch.Data.Hooks[idx]
 			source := labelStyle.Render(fmt.Sprintf("[%s]", h.Source))
-			b.WriteString(fmt.Sprintf("      %s %s\n", source, h.Type))
+			b.WriteString(sectionLine(fmt.Sprintf("  %s %s", source, h.Type)) + "\n")
 			if h.Matcher != "" {
-				b.WriteString(fmt.Sprintf("        matcher: %s\n", h.Matcher))
+				b.WriteString(sectionLine(fmt.Sprintf("    matcher: %s", h.Matcher)) + "\n")
 			}
 			if h.Command != "" {
-				b.WriteString(fmt.Sprintf("        command: %s\n", h.Command))
+				b.WriteString(sectionLine(fmt.Sprintf("    command: %s", h.Command)) + "\n")
 			}
 			if h.Async {
-				b.WriteString("        async: true\n")
+				b.WriteString(sectionLine("    async: true") + "\n")
 			}
 			if h.Timeout > 0 {
-				b.WriteString(fmt.Sprintf("        timeout: %ds\n", h.Timeout))
+				b.WriteString(sectionLine(fmt.Sprintf("    timeout: %ds", h.Timeout)) + "\n")
 			}
 		}
 	}

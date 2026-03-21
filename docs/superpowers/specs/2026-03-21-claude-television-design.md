@@ -166,7 +166,7 @@ claude-television/
 | `github.com/charmbracelet/bubbletea` | TUI 프레임워크 |
 | `github.com/charmbracelet/lipgloss` | TUI 스타일링 |
 | `github.com/charmbracelet/bubbles` | TUI 컴포넌트 (list, viewport 등) |
-| `gopkg.in/yaml.v3` | ctv 설정 파일 파싱 |
+| `github.com/spf13/viper` | ctv 설정 파일 관리 (로드/저장/기본값) |
 
 ## 데이터 흐름
 

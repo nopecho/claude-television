@@ -136,14 +136,23 @@ func (m *model) applySearch() {
 		return
 	}
 	results := channel.FuzzySearch(m.channels, m.searchQuery)
-	m.filtered = make([]int, 0)
+	if len(results) == 0 {
+		m.filtered = []int{}
+		m.channelCursor = 0
+		return
+	}
+
+	indexMap := make(map[string]int, len(m.channels))
+	for i, ch := range m.channels {
+		indexMap[ch.ID] = i
+	}
+
+	m.filtered = make([]int, 0, len(results))
 	for _, r := range results {
-		for i, ch := range m.channels {
-			if ch.ID == r.ID {
-				m.filtered = append(m.filtered, i)
-				break
-			}
+		if idx, ok := indexMap[r.ID]; ok {
+			m.filtered = append(m.filtered, idx)
 		}
 	}
 	m.channelCursor = 0
+	m.detailScroll = 0
 }

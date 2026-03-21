@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "my-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "my-mcp-server"],
+      "env": {"API_KEY": "test"}
+    },
+    "remote-server": {
+      "type": "sse",
+      "url": "http://localhost:3000/sse"
+    }
+  }
+}

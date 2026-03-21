@@ -4,15 +4,15 @@
 
 > 📺 한눈에 파악하는 Claude Code 설정 TUI 대시보드.
 
-Claude Code 설정은 `settings.json`, `CLAUDE.md`, 플러그인, 훅, 프로젝트별 설정 등 여러 위치에 분산되어 있습니다. **claude-television** (`ctv`)은 이 모든 설정을 읽기 전용 터미널 대시보드 하나로 모아 보여줍니다.
+Claude Code 설정은 `settings.json`, `CLAUDE.md`, 플러그인, 훅, MCP 서버, 메모리 등 여러 위치에 분산되어 있습니다. **claude-television** (`ctv`)은 새롭게 도입된 채널(Channel) 시스템을 통해 이 모든 정보를 하나의 터미널 대시보드에서 직관적으로 보여줍니다.
 
 ## 주요 기능
 
-- **전역 설정 (Global Settings)** — `~/.claude/settings.json`, `settings.local.json`, 전역 `CLAUDE.md`를 한 곳에서 확인합니다.
-- **프로젝트 탐색기 (Project Explorer)** — 디렉토리를 스캔하여 로컬 `.claude/` 디렉토리나 `CLAUDE.md` 파일이 존재하는 프로젝트들을 한눈에 보여줍니다.
-- **스킬 및 플러그인 (Skills & Plugins)** — 설치된 스킬과 플러그인 목록, 버전, 경로 및 활성화 상태 등의 세부 정보를 제공합니다.
-- **훅 개요 (Hooks Overview)** — 실행 트리거 조건 및 연결된 쉘 스크립트 등 등록된 훅(Hook) 정보들을 직관적으로 검사할 수 있습니다.
-- **키보드 기반 동작 (Keyboard-driven)** — Vim 스타일의 키 바인딩으로 터미널에서 빠르고 편리하게 탐색할 수 있습니다.
+- **하이브리드 TUI 대시보드** — 좌측의 채널 목록과 우측의 상세 탭(설정, CLAUDE.md, 훅, MCP, Git, 메모리)으로 구성된 분할 화면을 제공합니다.
+- **채널 자동 탐색** — `~/.claude/projects/`에 등록된 프로젝트들을 자동으로 찾아 채널로 동기화합니다.
+- **통합 정보 제공** — 전역/로컬 설정뿐만 아니라 MCP 서버, 메모리 파일, Git 상태 등 종합적인 컨텍스트를 확인할 수 있습니다.
+- **빠른 캐싱 시스템** — mtime 기반 캐싱을 통해 대시보드 로딩 속도를 최적화합니다.
+- **키보드 기반 동작 (Keyboard-driven)** — Vim 스타일 단축키를 지원하며, 선택한 프로젝트 디렉토리로 즉시 이동(`cd`)할 수도 있습니다.
 
 ## 설치 방법
 
@@ -45,21 +45,26 @@ go install github.com/nopecho/claude-television@latest
 ## 빠른 시작
 
 ```bash
-# 프로젝트를 스캔할 디렉토리 등록
-ctv scan ~/projects
+# ~/.claude/projects/에서 프로젝트 채널 자동 탐색 및 등록
+ctv init
 
 # 대시보드 실행
 ctv
 ```
 
+### 디렉토리 즉시 이동 기능 활성화
+TUI 화면에서 `Alt+Enter`를 눌러 해당 프로젝트 디렉토리로 즉시 이동(`cd`)하려면, 사용 중인 쉘 설정 파일(`~/.zshrc` 또는 `~/.bashrc`)에 아래 함수를 추가하세요:
+
+```bash
+ctv() { local dir; dir="$(command ctv "$@")"; [ -d "$dir" ] && cd "$dir" || command ctv "$@"; }
+```
+
 ## 사용법
 
 ```
-ctv                      # TUI 대시보드 실행
-ctv scan <path>          # 스캔할 경로 등록
-ctv scan --list          # 등록된 스캔 경로 목록 보기
-ctv scan --remove <path> # 스캔 경로 제거
-ctv version              # 버전 확인
+ctv          # TUI 대시보드 실행
+ctv init     # 채널 자동 탐색 및 등록
+ctv version  # 버전 확인
 ```
 
 ## 대시보드 화면
@@ -67,48 +72,53 @@ ctv version              # 버전 확인
 ```
 ┌─ claude-television ──────────────────────────────────────┐
 │                                                          │
-│  [Global] [Projects] [Skills] [Hooks]                    │
-│                                                          │
-│  ┌─ List ──────────────┐  ┌─ Detail ──────────────────┐  │
-│  │ ● Settings       ✓  │  │ model: opus               │  │
-│  │ ● Local Settings  ✓ │  │ language: korean          │  │
-│  │ ● CLAUDE.md      ✓  │  │ permissions:              │  │
-│  │                     │  │   allow: [Bash, Read...]  │  │
+│  ┌─ Channels ──────────┐  ┌─ Settings [CLAUDE.md] ────┐  │
+│  │ ● my-awesome-app    │  │ # Project Instructions    │  │
+│  │ ● ctv-backend       │  │                           │  │
+│  │ ○ legacy-api        │  │ ## Build                  │  │
+│  │ ✕ broken-project    │  │ - go build -o app .       │  │
 │  └─────────────────────┘  └───────────────────────────┘  │
 │                                                          │
-│  ↑↓/jk navigate  ←→/Tab switch  / filter  q quit         │
+│  ↑↓/jk navigate  ←→/Tab switch  Ctrl+d/u scroll  q quit  │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ## 단축키
 
-| 키                | 동작                   |
-| ----------------- | ---------------------- |
-| `↑` / `k`         | 위로 이동              |
-| `↓` / `j`         | 아래로 이동            |
-| `Tab` / `←` / `→` | 탭 전환                |
-| `Enter`           | 선택 / 상세 정보 토글  |
-| `/`               | 목록 필터링 (MVP 이후) |
-| `q` / `Ctrl+C`    | 종료                   |
+| 키                | 동작                           |
+| ----------------- | ------------------------------ |
+| `↑` / `k`         | 채널 목록 위로 이동            |
+| `↓` / `j`         | 채널 목록 아래로 이동          |
+| `Tab` / `←` / `→` | 우측 상세 탭 전환              |
+| `Ctrl+d` / `u`    | 상세 탭 내용 스크롤 (위/아래)  |
+| `Alt+Enter`       | 프로젝트 디렉토리로 이동 (`cd`)|
+| `/`               | 채널 이름 퍼지 검색            |
+| `q` / `Ctrl+C`    | 종료                           |
 
 ## 설정
 
-ctv는 설정 파일을 `~/.config/ctv/config.yaml`에 저장합니다:
+ctv는 이제 `~/.config/ctv/config.json` 파일을 통해 채널 설정을 관리합니다:
 
-```yaml
-scan:
-  roots:               # 프로젝트를 탐색할 최상위 디렉토리 목록
-    - ~/projects
-    - ~/work
-  ignore:              # 스캔 시 제외할 디렉토리명 (성능 향상 목적)
-    - node_modules
-    - .git
-    - vendor
+```json
+{
+  "channels": {
+    "auto_sync": true,
+    "cache_ttl": "24h",
+    "pins": [
+      "my-awesome-app"
+    ],
+    "groups": {
+      "Work": ["ctv-backend"]
+    }
+  }
+}
 ```
 
-- **`scan.roots`**: `ctv scan <path>` 명령어로 등록된 디렉토리들입니다. `ctv`는 이 디렉토리들을 재귀적으로 탐색하여 프로젝트들을 찾습니다.
-- **`scan.ignore`**: 성능 향상을 위해 스캔 시 무시할 디렉토리 목록입니다. 기본값으로 `node_modules`나 `.git` 같이 크기가 큰 디렉토리들이 포함되어 있습니다. 설정 파일이 없는 경우 합리적인 기본값들이 사용됩니다.
+- **`auto_sync`**: 실행 시 새로운 프로젝트를 자동으로 탐색합니다.
+- **`cache_ttl`**: 채널 데이터 캐시 유지 시간입니다.
+- **`pins`**: 목록 상단에 고정할 채널 이름이나 ID 배열입니다.
+- **`groups`**: 채널 이름이나 ID를 지정하여 그룹 단위로 분류합니다.
 
 ## 기여하기
 

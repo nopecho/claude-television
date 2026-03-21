@@ -4,15 +4,15 @@
 
 > 📺 A TUI dashboard for exploring your Claude Code configuration at a glance.
 
-Claude Code settings are scattered across multiple locations — `settings.json`, `CLAUDE.md`, plugins, hooks, and project-specific configs. **claude-television** (`ctv`) brings them all together in a single, read-only terminal dashboard.
+Claude Code settings are scattered across multiple locations — `settings.json`, `CLAUDE.md`, plugins, hooks, MCP servers, and memories. **claude-television** (`ctv`) brings them all together in a single, read-only terminal dashboard using a powerful channel-based system.
 
 ## Features
 
-- **Global Settings** — View `~/.claude/settings.json`, `settings.local.json`, and global `CLAUDE.md` in one place.
-- **Project Explorer** — Scan directories to see which projects have Claude Code configs (identified by local `.claude` directories or `CLAUDE.md` files).
-- **Skills & Plugins** — Browse installed plugins, their versions, paths, and activation status.
-- **Hooks Overview** — Inspect registered hooks, their associated shell commands, and execution triggers at a glance.
-- **Keyboard-driven** — Navigate with vim-style keybindings.
+- **Hybrid TUI Dashboard** — Navigate through a split-pane layout with a channel list on the left and detailed tabs on the right.
+- **Channel System** — Automatically discovers and syncs your Claude Code projects from `~/.claude/projects/`.
+- **Comprehensive Insights** — View local/global settings, `CLAUDE.md` sections, registered hooks, MCP servers, Git status, and Memory files.
+- **Fast & Cached** — Uses an mtime-based caching system for instant load times.
+- **Keyboard-driven** — Navigate effortlessly with Vim-style keybindings and even `cd` directly into projects.
 
 ## Installation
 
@@ -45,21 +45,26 @@ go install github.com/nopecho/claude-television@latest
 ## Quick Start
 
 ```bash
-# Register a directory to scan for projects
-ctv scan ~/projects
+# Discover and register projects from ~/.claude/projects/
+ctv init
 
 # Launch the dashboard
 ctv
 ```
 
+### Enable Directory Navigation
+To navigate directly to a project directory when pressing `Alt+Enter` in the TUI, add this function to your shell config (`~/.zshrc` or `~/.bashrc`):
+
+```bash
+ctv() { local dir; dir="$(command ctv "$@")"; [ -d "$dir" ] && cd "$dir" || command ctv "$@"; }
+```
+
 ## Usage
 
 ```
-ctv                      # Launch TUI dashboard
-ctv scan <path>          # Register a scan path
-ctv scan --list          # List registered scan paths
-ctv scan --remove <path> # Remove a scan path
-ctv version              # Show version
+ctv          # Launch TUI dashboard
+ctv init     # Discover and register channels
+ctv version  # Show version
 ```
 
 ## Dashboard
@@ -67,48 +72,53 @@ ctv version              # Show version
 ```
 ┌─ claude-television ──────────────────────────────────────┐
 │                                                          │
-│  [Global] [Projects] [Skills] [Hooks]                    │
-│                                                          │
-│  ┌─ List ──────────────┐  ┌─ Detail ──────────────────┐  │
-│  │ ● Settings       ✓  │  │ model: opus               │  │
-│  │ ● Local Settings  ✓ │  │ language: korean          │  │
-│  │ ● CLAUDE.md      ✓  │  │ permissions:              │  │
-│  │                     │  │   allow: [Bash, Read...]  │  │
+│  ┌─ Channels ──────────┐  ┌─ Settings [CLAUDE.md] ────┐  │
+│  │ ● my-awesome-app    │  │ # Project Instructions    │  │
+│  │ ● ctv-backend       │  │                           │  │
+│  │ ○ legacy-api        │  │ ## Build                  │  │
+│  │ ✕ broken-project    │  │ - go build -o app .       │  │
 │  └─────────────────────┘  └───────────────────────────┘  │
 │                                                          │
-│  ↑↓/jk navigate  ←→/Tab switch  / filter  q quit         │
+│  ↑↓/jk navigate  ←→/Tab switch  Ctrl+d/u scroll  q quit  │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ## Keybindings
 
-| Key            | Action                 |
-| -------------- | ---------------------- |
-| `↑`/`k`        | Move up                |
-| `↓`/`j`        | Move down              |
-| `Tab`/`←`/`→`  | Switch tab             |
-| `Enter`        | Select / toggle detail |
-| `/`            | Filter list (post-MVP) |
-| `q` / `Ctrl+C` | Quit                   |
+| Key            | Action                            |
+| -------------- | --------------------------------- |
+| `↑` / `k`      | Move up in channel list           |
+| `↓` / `j`      | Move down in channel list         |
+| `Tab`/`←`/`→`  | Switch detail tab                 |
+| `Ctrl+d` / `u` | Scroll detail view down / up      |
+| `Alt+Enter`    | Navigate to project dir (cd)      |
+| `/`            | Fuzzy search channels             |
+| `q` / `Ctrl+C` | Quit                              |
 
 ## Configuration
 
-ctv stores its config at `~/.config/ctv/config.yaml`:
+ctv stores its config at `~/.config/ctv/config.json`:
 
-```yaml
-scan:
-  roots:               # List of top-level directories to scan for projects
-    - ~/projects
-    - ~/work
-  ignore:              # Directory names to exclude during scanning (for performance)
-    - node_modules
-    - .git
-    - vendor
+```json
+{
+  "channels": {
+    "auto_sync": true,
+    "cache_ttl": "24h",
+    "pins": [
+      "my-awesome-app"
+    ],
+    "groups": {
+      "Work": ["ctv-backend"]
+    }
+  }
+}
 ```
 
-- **`scan.roots`**: The directories registered via `ctv scan <path>`. `ctv` will recursively search these directories for Claude Code projects.
-- **`scan.ignore`**: Directories that will be skipped during the scan to improve performance. The defaults include common large directories like `node_modules` and `.git`. If the config file does not exist, `ctv` will use sensible defaults.
+- **`auto_sync`**: Automatically discover new projects on launch.
+- **`cache_ttl`**: Duration to keep channel data cached.
+- **`pins`**: Array of channel names or IDs to pin to the top.
+- **`groups`**: Group channels by assigning names or IDs to a group label.
 
 ## Contributing
 

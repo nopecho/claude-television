@@ -195,25 +195,42 @@ func loadGitInfo(projectPath string) *GitInfo {
 		return nil
 	}
 	info := &GitInfo{}
-	if out, err := runGit(projectPath, "rev-parse", "--abbrev-ref", "HEAD"); err == nil {
-		info.Branch = strings.TrimSpace(out)
-	}
-	if out, err := runGit(projectPath, "log", "-1", "--format=%h|%s|%ci"); err == nil {
-		parts := strings.SplitN(strings.TrimSpace(out), "|", 3)
-		if len(parts) == 3 {
-			info.LastCommit = parts[0]
-			info.LastCommitMsg = parts[1]
-			info.LastCommitAt = parts[2]
+
+	var g errgroup.Group
+
+	g.Go(func() error {
+		if out, err := runGit(projectPath, "rev-parse", "--abbrev-ref", "HEAD"); err == nil {
+			info.Branch = strings.TrimSpace(out)
 		}
-	}
-	if out, err := runGit(projectPath, "status", "--porcelain"); err == nil {
-		trimmed := strings.TrimSpace(out)
-		if trimmed == "" {
-			info.DirtyFiles = 0
-		} else {
-			info.DirtyFiles = len(strings.Split(trimmed, "\n"))
+		return nil
+	})
+
+	g.Go(func() error {
+		if out, err := runGit(projectPath, "log", "-1", "--format=%h|%s|%ci"); err == nil {
+			parts := strings.SplitN(strings.TrimSpace(out), "|", 3)
+			if len(parts) == 3 {
+				info.LastCommit = parts[0]
+				info.LastCommitMsg = parts[1]
+				info.LastCommitAt = parts[2]
+			}
 		}
-	}
+		return nil
+	})
+
+	g.Go(func() error {
+		if out, err := runGit(projectPath, "status", "--porcelain"); err == nil {
+			trimmed := strings.TrimSpace(out)
+			if trimmed == "" {
+				info.DirtyFiles = 0
+			} else {
+				info.DirtyFiles = len(strings.Split(trimmed, "\n"))
+			}
+		}
+		return nil
+	})
+
+	_ = g.Wait()
+
 	return info
 }
 

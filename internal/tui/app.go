@@ -15,11 +15,12 @@ const (
 	TabClaudeMD
 	TabHooks
 	TabMCP
+	TabPlugins
 	TabGit
 	TabMemory
 )
 
-var detailTabNames = []string{"Settings", "CLAUDE.md", "Hooks", "MCP", "Git", "Memory"}
+var detailTabNames = []string{"Settings", "CLAUDE.md", "Hooks", "MCP", "Plugins", "Git", "Memory"}
 
 type model struct {
 	channels      []channel.Channel

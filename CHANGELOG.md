@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+
 - Initial project setup
 - TUI dashboard with 4 tabs: Global, Projects, Skills, Hooks
 - `ctv scan` command for managing project scan paths

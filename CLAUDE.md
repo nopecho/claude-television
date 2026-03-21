@@ -1,26 +1,26 @@
 # claude-television (ctv)
 
-Claude Code의 로컬 설정 상태를 TUI 대시보드로 탐색하는 읽기 전용 CLI 도구.
+A read-only CLI tool that explores the local configuration state of Claude Code with a TUI dashboard.
 
-## 빌드 및 실행
+## Build and Run
 
-- `go build -o ctv .` — 빌드
-- `go run .` — 실행
-- `go test ./...` — 전체 테스트
-- `go test ./internal/claude/... -v` — claude 패키지 테스트
-- `go test ./internal/scanner/... -v` — scanner 패키지 테스트
+- `go build -o ctv .` — Build
+- `go run .` — Run
+- `go test ./...` — Run all tests
+- `go test ./internal/claude/... -v` — Test claude package
+- `go test ./internal/scanner/... -v` — Test scanner package
 
-## 프로젝트 구조
+## Project Structure
 
-- `cmd/` — Cobra CLI 커맨드
-- `internal/claude/` — Claude Code 설정 파일 파싱 (settings, CLAUDE.md, plugins, skills, hooks, projects)
-- `internal/scanner/` — 프로젝트 디렉토리 스캔
-- `internal/config/` — Viper 기반 ctv 자체 설정 관리
-- `internal/tui/` — Bubble Tea TUI 컴포넌트
+- `cmd/` — Cobra CLI commands
+- `internal/claude/` — Claude Code configuration file parsing (settings, CLAUDE.md, plugins, skills, hooks, projects)
+- `internal/scanner/` — Project directory scanning
+- `internal/config/` — Viper-based ctv self-configuration management
+- `internal/tui/` — Bubble Tea TUI components
 
-## 코딩 컨벤션
+## Coding Conventions
 
-- Go 표준 프로젝트 레이아웃 (`cmd/`, `internal/`)
-- 에러 처리: `fmt.Errorf("context: %w", err)` 패턴 사용
-- 테스트: `testdata/` 디렉토리에 픽스처 파일 배치, 테이블 드리븐 테스트 선호
-- 외부 의존성 최소화, 필요한 경우만 추가
+- Go standard project layout (`cmd/`, `internal/`)
+- Error handling: Use `fmt.Errorf("context: %w", err)` pattern
+- Testing: Place fixture files in `testdata/` directory, prefer table-driven tests
+- Minimize external dependencies, add only when necessary

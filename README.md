@@ -1,18 +1,30 @@
 # claude-television
 
+[English 🇺🇸](./README.md) | [한국어 🇰🇷](./README_ko.md)
+
 > 📺 A TUI dashboard for exploring your Claude Code configuration at a glance.
 
 Claude Code settings are scattered across multiple locations — `settings.json`, `CLAUDE.md`, plugins, hooks, and project-specific configs. **claude-television** (`ctv`) brings them all together in a single, read-only terminal dashboard.
 
 ## Features
 
-- **Global Settings** — View `settings.json`, `settings.local.json`, and global `CLAUDE.md` in one place
-- **Project Explorer** — Scan directories to see which projects have Claude Code configs
-- **Skills & Plugins** — Browse installed plugins, their versions, and activation status
-- **Hooks Overview** — Inspect registered hooks at a glance
-- **Keyboard-driven** — Navigate with vim-style keybindings
+- **Global Settings** — View `~/.claude/settings.json`, `settings.local.json`, and global `CLAUDE.md` in one place.
+- **Project Explorer** — Scan directories to see which projects have Claude Code configs (identified by local `.claude` directories or `CLAUDE.md` files).
+- **Skills & Plugins** — Browse installed plugins, their versions, paths, and activation status.
+- **Hooks Overview** — Inspect registered hooks, their associated shell commands, and execution triggers at a glance.
+- **Keyboard-driven** — Navigate with vim-style keybindings.
 
 ## Installation
+
+### Quick Install (macOS / Linux)
+
+The easiest way to install the latest pre-compiled binary is using our install script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nopecho/claude-television/main/scripts/install.sh | bash
+```
+
+Alternatively, you can download the binary directly from the [GitHub Releases](https://github.com/nopecho/claude-television/releases) page.
 
 ### From Source
 
@@ -58,27 +70,27 @@ ctv version              # Show version
 │  [Global] [Projects] [Skills] [Hooks]                    │
 │                                                          │
 │  ┌─ List ──────────────┐  ┌─ Detail ──────────────────┐  │
-│  │ ● Settings       ✓  │  │ model: opus              │  │
-│  │ ● Local Settings  ✓  │  │ language: korean         │  │
-│  │ ● CLAUDE.md      ✓  │  │ permissions:             │  │
-│  │                      │  │   allow: [Bash, Read...] │  │
-│  └──────────────────────┘  └──────────────────────────┘  │
+│  │ ● Settings       ✓  │  │ model: opus               │  │
+│  │ ● Local Settings  ✓ │  │ language: korean          │  │
+│  │ ● CLAUDE.md      ✓  │  │ permissions:              │  │
+│  │                     │  │   allow: [Bash, Read...]  │  │
+│  └─────────────────────┘  └───────────────────────────┘  │
 │                                                          │
-│  ↑↓/jk navigate  ←→/Tab switch  / filter  q quit        │
+│  ↑↓/jk navigate  ←→/Tab switch  / filter  q quit         │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ## Keybindings
 
-| Key | Action |
-|-----|--------|
-| `↑`/`k` | Move up |
-| `↓`/`j` | Move down |
-| `Tab`/`←`/`→` | Switch tab |
-| `Enter` | Select / toggle detail |
-| `/` | Filter list (post-MVP) |
-| `q` / `Ctrl+C` | Quit |
+| Key            | Action                 |
+| -------------- | ---------------------- |
+| `↑`/`k`        | Move up                |
+| `↓`/`j`        | Move down              |
+| `Tab`/`←`/`→`  | Switch tab             |
+| `Enter`        | Select / toggle detail |
+| `/`            | Filter list (post-MVP) |
+| `q` / `Ctrl+C` | Quit                   |
 
 ## Configuration
 
@@ -86,14 +98,17 @@ ctv stores its config at `~/.config/ctv/config.yaml`:
 
 ```yaml
 scan:
-  roots:
+  roots:               # List of top-level directories to scan for projects
     - ~/projects
     - ~/work
-  ignore:
+  ignore:              # Directory names to exclude during scanning (for performance)
     - node_modules
     - .git
     - vendor
 ```
+
+- **`scan.roots`**: The directories registered via `ctv scan <path>`. `ctv` will recursively search these directories for Claude Code projects.
+- **`scan.ignore`**: Directories that will be skipped during the scan to improve performance. The defaults include common large directories like `node_modules` and `.git`. If the config file does not exist, `ctv` will use sensible defaults.
 
 ## Contributing
 

@@ -6,13 +6,37 @@ import (
 )
 
 // DecodeProjectPath decodes an encoded project directory name back to an absolute path.
-// Claude Code encodes paths like "/Users/foo/projects/bar" as "-Users-foo-projects-bar".
+// Claude Code encodes paths by replacing "/" with "-" and "." with "-".
+// Examples:
+//   - "-Users-foo-projects-bar" → "/Users/foo/projects/bar"
+//   - "-Users-foo--config"     → "/Users/foo/.config"  (double dash = dot-prefixed)
+//   - "-Users-foo--local-share-chezmoi" → "/Users/foo/.local/share/chezmoi"
 func DecodeProjectPath(encoded string) string {
 	if !strings.HasPrefix(encoded, "-") {
 		return encoded
 	}
-	parts := strings.Split(strings.TrimPrefix(encoded, "-"), "-")
+	// Split on "-" and preprocess: an empty part means the next part was dot-prefixed.
+	// e.g. "-Users-foo--config" → ["Users", "foo", "", "config"]
+	//   → ["Users", "foo", ".config"]
+	raw := strings.Split(strings.TrimPrefix(encoded, "-"), "-")
+	parts := preprocessDotParts(raw)
 	return bestEffortDecode(parts)
+}
+
+// preprocessDotParts merges empty parts with the following part as a dot prefix.
+// ["Users", "foo", "", "config"] → ["Users", "foo", ".config"]
+// ["Users", "foo", "", "local", "share"] → ["Users", "foo", ".local", "share"]
+func preprocessDotParts(raw []string) []string {
+	parts := make([]string, 0, len(raw))
+	for i := 0; i < len(raw); i++ {
+		if raw[i] == "" && i+1 < len(raw) {
+			parts = append(parts, "."+raw[i+1])
+			i++ // skip next
+		} else if raw[i] != "" {
+			parts = append(parts, raw[i])
+		}
+	}
+	return parts
 }
 
 func bestEffortDecode(parts []string) string {

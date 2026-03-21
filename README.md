@@ -10,7 +10,7 @@ Claude Code settings are scattered across multiple locations — `settings.json`
 
 - **Hybrid TUI Dashboard** — Navigate through a split-pane layout with a channel list on the left and detailed tabs on the right.
 - **Channel System** — Automatically discovers and syncs your Claude Code projects from `~/.claude/projects/`.
-- **Comprehensive Insights** — View local/global settings, `CLAUDE.md` sections, registered hooks, MCP servers, Git status, and Memory files.
+- **Comprehensive Insights** — View local/global settings, `CLAUDE.md`, registered hooks, MCP servers, plugins, local skills, project health, Git status, and Memory files.
 - **Fast & Cached** — Uses an mtime-based caching system for instant load times.
 - **Keyboard-driven** — Navigate effortlessly with Vim-style keybindings and even `cd` directly into projects.
 
@@ -86,15 +86,20 @@ ctv version  # Show version
 
 ## Keybindings
 
-| Key            | Action                            |
-| -------------- | --------------------------------- |
-| `↑` / `k`      | Move up in channel list           |
-| `↓` / `j`      | Move down in channel list         |
-| `Tab`/`←`/`→`  | Switch detail tab                 |
-| `Ctrl+d` / `u` | Scroll detail view down / up      |
-| `Alt+Enter`    | Navigate to project dir (cd)      |
-| `/`            | Fuzzy search channels             |
-| `q` / `Ctrl+C` | Quit                              |
+| Key                 | Action                            |
+| ------------------- | --------------------------------- |
+| `↑` / `k`           | Move up in channel list           |
+| `↓` / `j`           | Move down in channel list         |
+| `Tab`/`→`/`l`       | Next detail tab                   |
+| `Shift+Tab`/`←`/`h` | Previous detail tab               |
+| `Ctrl+d` / `u`      | Scroll detail view down / up      |
+| `Alt+Enter`         | Navigate to project dir (cd)      |
+| `/`                 | Fuzzy search channels             |
+| `?`                 | Search within content             |
+| `p`                 | Pin / Unpin channel               |
+| `e`                 | Edit project config (in $EDITOR)  |
+| `g`                 | Manage channel groups             |
+| `q` / `Ctrl+C`      | Quit                              |
 
 ## Configuration
 
@@ -111,7 +116,8 @@ ctv stores its config at `~/.config/ctv/config.json`:
     "groups": {
       "Work": ["ctv-backend"]
     }
-  }
+  },
+  "editor": "vim"
 }
 ```
 
@@ -119,6 +125,7 @@ ctv stores its config at `~/.config/ctv/config.json`:
 - **`cache_ttl`**: Duration to keep channel data cached.
 - **`pins`**: Array of channel names or IDs to pin to the top.
 - **`groups`**: Group channels by assigning names or IDs to a group label.
+- **`editor`**: The command used to open configuration files (e.g., `vim`, `code`, `nano`).
 
 ## Contributing
 

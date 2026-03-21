@@ -2,34 +2,81 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
+// Color palette — Catppuccin Mocha inspired
 var (
-	accentColor  = lipgloss.Color("205")
-	dimColor     = lipgloss.Color("241")
-	borderColor  = lipgloss.Color("238")
-	healthyColor = lipgloss.Color("42")
-	warningColor = lipgloss.Color("214")
-	errorColor   = lipgloss.Color("196")
-	groupColor   = lipgloss.Color("69")
-	pinColor     = lipgloss.Color("220")
-	tabBgColor   = lipgloss.Color("236")
+	accentColor  = lipgloss.AdaptiveColor{Light: "97", Dark: "#7C6FAF"}
+	greenColor   = lipgloss.AdaptiveColor{Light: "65", Dark: "#5B8A72"}
+	subtleColor  = lipgloss.AdaptiveColor{Light: "243", Dark: "#6C7086"}
+	surfaceColor = lipgloss.AdaptiveColor{Light: "236", Dark: "#313244"}
+	overlayColor = lipgloss.AdaptiveColor{Light: "239", Dark: "#45475A"}
+	textColor    = lipgloss.AdaptiveColor{Light: "189", Dark: "#CDD6F4"}
+	subtextColor = lipgloss.AdaptiveColor{Light: "145", Dark: "#A6ADC8"}
+	warningColor = lipgloss.AdaptiveColor{Light: "222", Dark: "#F9E2AF"}
+	errorColor   = lipgloss.AdaptiveColor{Light: "211", Dark: "#F38BA8"}
+)
 
-	titleStyle = lipgloss.NewStyle().
+// Panel borders
+var (
+	focusedBorderStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(accentColor)
+
+	unfocusedBorderStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(overlayColor)
+)
+
+// Panel titles
+var (
+	focusedTitleStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(accentColor)
+
+	unfocusedTitleStyle = lipgloss.NewStyle().
+				Foreground(subtleColor)
+)
+
+// Header / app title
+var titleStyle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(accentColor).
+	Padding(0, 1)
+
+// Tab bar
+var (
+	activeTabStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(accentColor).
 			Padding(0, 1)
 
-	headerStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(accentColor)
+	inactiveTabStyle = lipgloss.NewStyle().
+				Foreground(subtextColor).
+				Padding(0, 1)
 
-	borderStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(borderColor)
+	tabUnderlineStyle = lipgloss.NewStyle().
+				Foreground(accentColor)
+)
 
-	helpStyle = lipgloss.NewStyle().
-			Foreground(dimColor)
+// Content
+var (
+	sectionTitleStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(accentColor)
 
+	sectionBarStyle = lipgloss.NewStyle().
+			Foreground(subtleColor)
+
+	labelStyle = lipgloss.NewStyle().
+			Foreground(subtextColor)
+
+	valueStyle = lipgloss.NewStyle().
+			Foreground(textColor)
+)
+
+// Channel list
+var (
 	channelItemStyle = lipgloss.NewStyle().
+				Foreground(textColor).
 				Padding(0, 1)
 
 	channelSelectedStyle = lipgloss.NewStyle().
@@ -38,35 +85,33 @@ var (
 				Padding(0, 1)
 
 	groupHeaderStyle = lipgloss.NewStyle().
-				Foreground(groupColor).
+				Foreground(subtleColor).
 				Bold(true).
 				Padding(0, 1)
+)
 
-	activeTabStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(accentColor).
-			Background(tabBgColor).
-			Padding(0, 1)
-
-	inactiveTabStyle = lipgloss.NewStyle().
-				Foreground(dimColor).
-				Padding(0, 1)
-
-	detailStyle = lipgloss.NewStyle().
-			Padding(0, 1)
-
-	labelStyle = lipgloss.NewStyle().
-			Foreground(dimColor)
-
-	valueStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("255"))
-
-	statusHealthy = lipgloss.NewStyle().Foreground(healthyColor).Render("●")
+// Status icons
+var (
+	statusHealthy = lipgloss.NewStyle().Foreground(greenColor).Render("●")
 	statusWarning = lipgloss.NewStyle().Foreground(warningColor).Render("○")
 	statusError   = lipgloss.NewStyle().Foreground(errorColor).Render("✕")
-	pinIcon       = lipgloss.NewStyle().Foreground(pinColor).Render("★")
-
-	searchStyle = lipgloss.NewStyle().
-			Foreground(accentColor).
-			Bold(true)
+	pinIcon       = lipgloss.NewStyle().Foreground(warningColor).Render("★")
 )
+
+// Help bar
+var (
+	helpKeyStyle = lipgloss.NewStyle().
+			Foreground(accentColor)
+
+	helpDescStyle = lipgloss.NewStyle().
+			Foreground(subtextColor)
+)
+
+// Search
+var searchStyle = lipgloss.NewStyle().
+	Foreground(accentColor).
+	Bold(true)
+
+// Detail content padding
+var detailStyle = lipgloss.NewStyle().
+	Padding(0, 1)

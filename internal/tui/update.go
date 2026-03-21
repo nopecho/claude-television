@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nopecho/claude-television/internal/channel"
 	"github.com/nopecho/claude-television/internal/config"
@@ -13,68 +14,129 @@ import (
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if m.searching || m.contentSearching {
+		if m.searching || m.contentSearching || m.grouping {
 			return m.updateSearch(msg)
-		}
-		if m.grouping {
-			return m.updateGrouping(msg)
 		}
 		return m.updateNormal(msg)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.syncViewportSize()
+		m.syncDetailContent()
+		return m, nil
+	case tea.MouseMsg:
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 	case editorFinishedMsg:
-		// Editor finished, no action needed - TUI resumes automatically
 		return m, nil
 	}
 	return m, nil
 }
 
+func (m *model) syncViewportSize() {
+	listWidth := m.listWidth()
+	detailWidth := m.width - listWidth - 4
+	contentHeight := m.height - 7 // header + tab bar + help + borders
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
+	m.viewport.Width = detailWidth - 2
+	m.viewport.Height = contentHeight
+}
+
+func (m model) listWidth() int {
+	w := m.width * 25 / 100
+	if w < 24 {
+		w = 24
+	}
+	if w > 30 {
+		w = 30
+	}
+	return w
+}
+
 func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	action := parseKey(msg)
+
 	switch action {
 	case keyQuit:
 		return m, tea.Quit
+
+	case keyTab, keyShiftTab:
+		if m.focus == listPanel {
+			m.focus = detailPanel
+		} else {
+			m.focus = listPanel
+		}
+		return m, nil
+
 	case keyUp:
-		if m.channelCursor > 0 {
-			m.channelCursor--
-			m.detailScroll = 0
+		if m.focus == listPanel {
+			if m.channelCursor > 0 {
+				m.channelCursor--
+				m.syncDetailContent()
+			}
+		} else {
+			m.viewport.LineUp(1)
 		}
+
 	case keyDown:
-		if m.channelCursor < len(m.filtered)-1 {
-			m.channelCursor++
-			m.detailScroll = 0
+		if m.focus == listPanel {
+			if m.channelCursor < len(m.filtered)-1 {
+				m.channelCursor++
+				m.syncDetailContent()
+			}
+		} else {
+			m.viewport.LineDown(1)
 		}
-	case keyTab, keyRight:
-		m.detailTab = (m.detailTab + 1) % DetailTab(len(detailTabNames))
-		m.detailScroll = 0
-	case keyShiftTab, keyLeft:
+
+	case keyLeft:
 		m.detailTab = (m.detailTab - 1 + DetailTab(len(detailTabNames))) % DetailTab(len(detailTabNames))
-		m.detailScroll = 0
+		m.syncDetailContent()
+
+	case keyRight:
+		m.detailTab = (m.detailTab + 1) % DetailTab(len(detailTabNames))
+		m.syncDetailContent()
+
 	case keySlash:
 		m.searching = true
-		m.searchQuery = ""
+		m.searchInput.Placeholder = "Search channels..."
+		m.searchInput.SetValue("")
+		m.searchInput.Focus()
+		return m, textinput.Blink
+
 	case keyContentSearch:
 		m.contentSearching = true
-		m.searchQuery = ""
+		m.searchInput.Placeholder = "Search content..."
+		m.searchInput.SetValue("")
+		m.searchInput.Focus()
+		return m, textinput.Blink
+
 	case keyGroup:
 		ch := m.selectedChannel()
 		if ch != nil && !ch.IsGlobal {
 			m.grouping = true
-			m.searchQuery = ch.Group
+			m.searchInput.Placeholder = "Set group name..."
+			m.searchInput.SetValue(ch.Group)
+			m.searchInput.Focus()
+			return m, textinput.Blink
 		}
+
 	case keyCmdEnter:
 		ch := m.selectedChannel()
 		if ch != nil {
 			m.navigateTo = ch.Path
 			return m, tea.Quit
 		}
+
 	case keyPin:
 		ch := m.selectedChannel()
 		if ch != nil {
 			ch.Pinned = !ch.Pinned
 			m.updatePins()
 		}
+
 	case keyEdit:
 		ch := m.selectedChannel()
 		if ch != nil {
@@ -90,15 +152,21 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				})
 			}
 		}
+
 	case keyScrollDown:
-		m.detailScroll += 10
+		m.viewport.HalfViewDown()
+
 	case keyScrollUp:
-		m.detailScroll -= 10
-		if m.detailScroll < 0 {
-			m.detailScroll = 0
-		}
+		m.viewport.HalfViewUp()
 	}
+
 	return m, nil
+}
+
+func (m *model) syncDetailContent() {
+	content := m.renderDetailContentString()
+	m.viewport.SetContent(content)
+	m.viewport.GotoTop()
 }
 
 func (m *model) updatePins() {
@@ -117,38 +185,53 @@ func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.searching = false
 		m.contentSearching = false
-		m.searchQuery = ""
+		m.grouping = false
+		m.searchInput.Blur()
+		m.searchInput.SetValue("")
 		m.resetFilter()
 		m.channelCursor = 0
+		m.syncDetailContent()
+		return m, nil
 	case "enter":
+		if m.grouping {
+			ch := m.selectedChannel()
+			if ch != nil {
+				ch.Group = m.searchInput.Value()
+				m.updateGroups()
+				m.sortChannels()
+				m.resetFilter()
+			}
+		}
 		m.searching = false
 		m.contentSearching = false
-	case "backspace":
-		if len(m.searchQuery) > 0 {
-			m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
-			m.applySearch()
-		}
+		m.grouping = false
+		m.searchInput.Blur()
+		m.syncDetailContent()
+		return m, nil
 	default:
-		if len(msg.String()) == 1 {
-			m.searchQuery += msg.String()
+		var cmd tea.Cmd
+		m.searchInput, cmd = m.searchInput.Update(msg)
+		if !m.grouping {
 			m.applySearch()
 		}
+		return m, cmd
 	}
-	return m, nil
 }
 
 func (m *model) applySearch() {
-	if m.searchQuery == "" {
+	query := m.searchInput.Value()
+	if query == "" {
 		m.resetFilter()
 		return
 	}
 
 	var results []channel.Channel
 	if m.contentSearching {
-		results = channel.ContentSearch(m.channels, m.searchQuery)
+		results = channel.ContentSearch(m.channels, query)
 	} else {
-		results = channel.FuzzySearch(m.channels, m.searchQuery)
+		results = channel.FuzzySearch(m.channels, query)
 	}
+
 	if len(results) == 0 {
 		m.filtered = []int{}
 		m.channelCursor = 0
@@ -167,34 +250,6 @@ func (m *model) applySearch() {
 		}
 	}
 	m.channelCursor = 0
-	m.detailScroll = 0
-}
-
-func (m model) updateGrouping(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		m.grouping = false
-		m.searchQuery = ""
-	case "enter":
-		ch := m.selectedChannel()
-		if ch != nil {
-			ch.Group = m.searchQuery
-			m.updateGroups()
-			m.sortChannels()
-			m.resetFilter()
-		}
-		m.grouping = false
-		m.searchQuery = ""
-	case "backspace":
-		if len(m.searchQuery) > 0 {
-			m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
-		}
-	default:
-		if len(msg.String()) == 1 {
-			m.searchQuery += msg.String()
-		}
-	}
-	return m, nil
 }
 
 func (m *model) updateGroups() {

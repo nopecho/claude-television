@@ -1,60 +1,29 @@
 package tui
 
-import (
-	"fmt"
-	"strings"
-)
-
-func (m model) renderDetailContent(height int) string {
+// renderDetailContentString produces the raw content string for the viewport.
+func (m model) renderDetailContentString() string {
 	ch := m.selectedChannel()
 	if ch == nil || ch.Data == nil {
 		return detailStyle.Render("No channel selected")
 	}
 
-	var content string
 	switch m.detailTab {
 	case TabSettings:
-		content = m.renderSettingsTab(ch)
+		return m.renderSettingsTab(ch)
 	case TabClaudeMD:
-		content = m.renderClaudeMDTab(ch)
+		return m.renderClaudeMDTab(ch)
 	case TabHooks:
-		content = m.renderHooksTab(ch)
+		return m.renderHooksTab(ch)
 	case TabMCP:
-		content = m.renderMCPTab(ch)
+		return m.renderMCPTab(ch)
 	case TabPlugins:
-		content = m.renderPluginsTab(ch)
+		return m.renderPluginsTab(ch)
 	case TabHealth:
-		content = m.renderHealthTab(ch)
+		return m.renderHealthTab(ch)
 	case TabGit:
-		content = m.renderGitTab(ch)
+		return m.renderGitTab(ch)
 	case TabMemory:
-		content = m.renderMemoryTab(ch)
+		return m.renderMemoryTab(ch)
 	}
-
-	// Apply scroll offset
-	lines := strings.Split(content, "\n")
-	if m.detailScroll >= len(lines) {
-		m.detailScroll = len(lines) - 1
-	}
-	if m.detailScroll < 0 {
-		m.detailScroll = 0
-	}
-
-	end := m.detailScroll + height
-	if end > len(lines) {
-		end = len(lines)
-	}
-
-	visible := lines[m.detailScroll:end]
-	result := strings.Join(visible, "\n")
-
-	// Show scroll indicator if there's more content
-	if end < len(lines) {
-		result += "\n" + labelStyle.Render(fmt.Sprintf("  ↓ %d more lines", len(lines)-end))
-	}
-	if m.detailScroll > 0 {
-		result = labelStyle.Render(fmt.Sprintf("  ↑ %d lines above", m.detailScroll)) + "\n" + result
-	}
-
-	return result
+	return ""
 }

@@ -13,9 +13,7 @@ func (m model) renderHealthTab(ch *channel.Channel) string {
 
 	issues := ch.Data.HealthIssues
 	if len(issues) == 0 {
-		b.WriteString(section("Health Check"))
-		b.WriteString(fmt.Sprintf("    %s All checks passed\n", statusHealthy))
-		return b.String()
+		return emptyState("Health Check", "All checks passed", "No issues found in project configuration")
 	}
 
 	errors := 0
@@ -29,20 +27,19 @@ func (m model) renderHealthTab(ch *channel.Channel) string {
 		}
 	}
 
-	b.WriteString(section("Health Check"))
+	b.WriteString(section("Summary"))
 	if errors > 0 {
-		b.WriteString(fmt.Sprintf("    %s %d errors  ", statusError, errors))
+		b.WriteString(sectionLine(fmt.Sprintf("  %s %d errors", statusError, errors)) + "\n")
 	}
 	if warnings > 0 {
-		b.WriteString(fmt.Sprintf("    %s %d warnings  ", statusWarning, warnings))
+		b.WriteString(sectionLine(fmt.Sprintf("  %s %d warnings", statusWarning, warnings)) + "\n")
 	}
-	b.WriteString("\n")
 
 	if errors > 0 {
 		b.WriteString(section("Errors"))
 		for _, i := range issues {
 			if i.Severity == claude.SeverityError {
-				b.WriteString(fmt.Sprintf("    %s %s\n", statusError, i.Message))
+				b.WriteString(sectionLine(fmt.Sprintf("  %s %s", statusError, i.Message)) + "\n")
 			}
 		}
 	}
@@ -51,7 +48,7 @@ func (m model) renderHealthTab(ch *channel.Channel) string {
 		b.WriteString(section("Warnings"))
 		for _, i := range issues {
 			if i.Severity == claude.SeverityWarning {
-				b.WriteString(fmt.Sprintf("    %s %s\n", statusWarning, i.Message))
+				b.WriteString(sectionLine(fmt.Sprintf("  %s %s", statusWarning, i.Message)) + "\n")
 			}
 		}
 	}

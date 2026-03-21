@@ -12,9 +12,7 @@ func (m model) renderMemoryTab(ch *channel.Channel) string {
 	var b strings.Builder
 
 	if len(ch.Data.MemoryFiles) == 0 {
-		b.WriteString(section("Memory"))
-		b.WriteString("    No memory files found\n")
-		return b.String()
+		return emptyState("Memory", "No memory files found", "Memory files are created by Claude automatically")
 	}
 
 	b.WriteString(section(fmt.Sprintf("Memory Files (%d)", len(ch.Data.MemoryFiles))))
@@ -27,11 +25,12 @@ func (m model) renderMemoryTab(ch *channel.Channel) string {
 	})
 
 	for _, t := range order {
-		b.WriteString(fmt.Sprintf("\n    %s\n", headerStyle.Render("["+t+"]")))
+		b.WriteString(sectionEmpty() + "\n")
+		b.WriteString(sectionLine(sectionTitleStyle.Render("["+t+"]")) + "\n")
 		for _, mf := range groups[t] {
-			b.WriteString(fmt.Sprintf("      %s\n", mf.Name))
+			b.WriteString(sectionLine("  "+valueStyle.Render(mf.Name)) + "\n")
 			if mf.Description != "" {
-				b.WriteString(fmt.Sprintf("        %s\n", labelStyle.Render(mf.Description)))
+				b.WriteString(sectionLine("    "+labelStyle.Render(mf.Description)) + "\n")
 			}
 		}
 	}

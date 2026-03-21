@@ -12,8 +12,8 @@ func (m model) renderSettingsTab(ch *channel.Channel) string {
 	var b strings.Builder
 
 	b.WriteString(section("Project"))
-	b.WriteString(kv("path", ch.Path) + "\n")
-	b.WriteString(kv("status", string(ch.Status)) + "\n")
+	b.WriteString(kv("path", ch.Path, 8) + "\n")
+	b.WriteString(kv("status", statusIconStr(ch.Status)+" "+string(ch.Status), 8) + "\n")
 
 	if ch.Data.Settings != nil {
 		b.WriteString(renderSettingsSection(ch.Data.Settings, "Project Settings"))
@@ -22,8 +22,7 @@ func (m model) renderSettingsTab(ch *channel.Channel) string {
 		b.WriteString(renderSettingsSection(ch.Data.LocalSettings, "Local Settings (override)"))
 	}
 	if ch.Data.Settings == nil && ch.Data.LocalSettings == nil {
-		b.WriteString(section("Settings"))
-		b.WriteString("    No settings.json found\n")
+		b.WriteString(emptyState("Settings", "No settings.json found", "Configure in .claude/settings.json"))
 	}
 
 	if !ch.IsGlobal {
@@ -33,10 +32,8 @@ func (m model) renderSettingsTab(ch *channel.Channel) string {
 			if len(diffs) > 0 {
 				b.WriteString(section("Overrides from Global"))
 				for _, d := range diffs {
-					b.WriteString(fmt.Sprintf("    %s: %s → %s\n",
-						labelStyle.Render(d.key),
-						labelStyle.Render(d.globalVal),
-						valueStyle.Render(d.projectVal)))
+					val := fmt.Sprintf("%s → %s", labelStyle.Render(d.globalVal), valueStyle.Render(d.projectVal))
+					b.WriteString(kv(d.key, val, 12) + "\n")
 				}
 			}
 		}
@@ -60,7 +57,7 @@ func diffSettings(global, project *claude.Settings) []settingsDiff {
 		diffs = append(diffs, settingsDiff{"language", global.Language, project.Language})
 	}
 	if project.TeammateMode != "" && project.TeammateMode != global.TeammateMode {
-		diffs = append(diffs, settingsDiff{"teammateMode", global.TeammateMode, project.TeammateMode})
+		diffs = append(diffs, settingsDiff{"teammate", global.TeammateMode, project.TeammateMode})
 	}
 	return diffs
 }
@@ -68,36 +65,39 @@ func diffSettings(global, project *claude.Settings) []settingsDiff {
 func renderSettingsSection(s *claude.Settings, title string) string {
 	var b strings.Builder
 	b.WriteString(section(title))
+
 	if s.Model != "" {
-		b.WriteString(kv("model", s.Model) + "\n")
+		b.WriteString(kv("model", s.Model, 10) + "\n")
 	}
 	if s.Language != "" {
-		b.WriteString(kv("language", s.Language) + "\n")
+		b.WriteString(kv("language", s.Language, 10) + "\n")
 	}
 	if s.TeammateMode != "" {
-		b.WriteString(kv("teammate", s.TeammateMode) + "\n")
+		b.WriteString(kv("teammate", s.TeammateMode, 10) + "\n")
 	}
 	if s.PlansDirectory != "" {
-		b.WriteString(kv("plans dir", s.PlansDirectory) + "\n")
+		b.WriteString(kv("plans dir", s.PlansDirectory, 10) + "\n")
 	}
+
 	if len(s.Env) > 0 {
 		b.WriteString(section("Environment"))
 		for k, v := range s.Env {
-			b.WriteString(fmt.Sprintf("    %s = %s\n", k, v))
+			b.WriteString(sectionLine(fmt.Sprintf("  %s = %s", k, v)) + "\n")
 		}
 	}
+
 	if len(s.Permissions.Allow) > 0 || len(s.Permissions.Deny) > 0 {
 		b.WriteString(section("Permissions"))
 		if len(s.Permissions.Allow) > 0 {
-			b.WriteString(fmt.Sprintf("    Allow (%d):\n", len(s.Permissions.Allow)))
+			b.WriteString(sectionLine(fmt.Sprintf("  Allow (%d):", len(s.Permissions.Allow))) + "\n")
 			for _, p := range s.Permissions.Allow {
-				b.WriteString(fmt.Sprintf("      %s %s\n", statusHealthy, p))
+				b.WriteString(sectionLine(fmt.Sprintf("    %s %s", statusHealthy, p)) + "\n")
 			}
 		}
 		if len(s.Permissions.Deny) > 0 {
-			b.WriteString(fmt.Sprintf("    Deny (%d):\n", len(s.Permissions.Deny)))
+			b.WriteString(sectionLine(fmt.Sprintf("  Deny (%d):", len(s.Permissions.Deny))) + "\n")
 			for _, p := range s.Permissions.Deny {
-				b.WriteString(fmt.Sprintf("      %s %s\n", statusError, p))
+				b.WriteString(sectionLine(fmt.Sprintf("    %s %s", statusError, p)) + "\n")
 			}
 		}
 	}

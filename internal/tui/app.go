@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nopecho/claude-television/internal/channel"
 	"github.com/nopecho/claude-television/internal/config"
@@ -23,36 +25,52 @@ const (
 
 var detailTabNames = []string{"Settings", "CLAUDE.md", "Hooks", "MCP", "Plugins", "Health", "Git", "Memory"}
 
+type focusPanel int
+
+const (
+	listPanel focusPanel = iota
+	detailPanel
+)
+
 type model struct {
-	channels      []channel.Channel
-	cfg           *config.Config
-	channelCursor int
-	detailTab     DetailTab
-	detailScroll  int
-	width         int
-	height        int
+	channels         []channel.Channel
+	cfg              *config.Config
+	channelCursor    int
+	detailTab        DetailTab
+	width            int
+	height           int
+	focus            focusPanel
+	viewport         viewport.Model
+	searchInput      textinput.Model
 	searching        bool
 	contentSearching bool
 	grouping         bool
-	searchQuery      string
 	filtered         []int
 	navigateTo       string
 }
 
 func newModel(channels []channel.Channel, cfg *config.Config) model {
+	ti := textinput.New()
+	ti.Placeholder = "Search channels..."
+	ti.Prompt = " / "
+	ti.PromptStyle = searchStyle
+
 	m := model{
-		channels: channels,
-		cfg:      cfg,
+		channels:    channels,
+		cfg:         cfg,
+		searchInput: ti,
+		viewport:    viewport.New(0, 0),
 	}
+
 	m.sortChannels()
 	m.resetFilter()
 	return m
 }
 
 func (m *model) sortChannels() {
-	pinned := make([]channel.Channel, 0)
+	var pinned []channel.Channel
 	grouped := make(map[string][]channel.Channel)
-	ungrouped := make([]channel.Channel, 0)
+	var ungrouped []channel.Channel
 	var groupOrder []string
 
 	for _, ch := range m.channels {

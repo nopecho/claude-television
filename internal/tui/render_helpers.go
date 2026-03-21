@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/nopecho/claude-television/internal/channel"
 )
 
@@ -33,24 +34,50 @@ func truncate(s string, max int) string {
 	return s[:max-1] + "…"
 }
 
-func kv(key, value string) string {
-	return fmt.Sprintf("  %s  %s", labelStyle.Render(key+":"), valueStyle.Render(value))
+// sectionHeader renders: ▎Section Title
+func sectionHeader(title string) string {
+	bar := sectionTitleStyle.Render("▎")
+	text := sectionTitleStyle.Render(title)
+	return bar + text
+}
+
+// sectionLine renders: │ content
+func sectionLine(content string) string {
+	bar := sectionBarStyle.Render("│")
+	return bar + " " + content
+}
+
+// sectionEmpty renders: │
+func sectionEmpty() string {
+	return sectionBarStyle.Render("│")
+}
+
+// kv renders a key-value pair with aligned key width.
+func kv(key, value string, keyWidth int) string {
+	k := labelStyle.Render(fmt.Sprintf("%-*s", keyWidth, key))
+	return sectionLine(fmt.Sprintf("%s  %s", k, valueStyle.Render(value)))
 }
 
 func section(title string) string {
-	return "\n" + headerStyle.Render("  "+title) + "\n"
-}
-
-func indent(s string) string {
-	lines := strings.Split(s, "\n")
-	for i, l := range lines {
-		lines[i] = "    " + l
-	}
-	return strings.Join(lines, "\n")
+	return "\n" + sectionHeader(title) + "\n"
 }
 
 func bullet(s string) string {
-	return "    • " + s
+	return sectionLine("  • " + s)
+}
+
+func emptyState(title, message, hint string) string {
+	var b strings.Builder
+	b.WriteString(section(title))
+	b.WriteString(sectionLine("  "+lipgloss.NewStyle().Foreground(subtextColor).Render(message)) + "\n")
+	if hint != "" {
+		b.WriteString(sectionLine("  "+lipgloss.NewStyle().Foreground(subtleColor).Render(hint)) + "\n")
+	}
+	return b.String()
+}
+
+func helpEntry(key, desc string) string {
+	return helpKeyStyle.Render(key) + " " + helpDescStyle.Render(desc)
 }
 
 // orderedGroup groups items by a key function, preserving first-seen order.

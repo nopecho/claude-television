@@ -11,27 +11,25 @@ func (m model) renderGitTab(ch *channel.Channel) string {
 	var b strings.Builder
 
 	if ch.Data.GitInfo == nil {
-		b.WriteString(section("Git"))
-		b.WriteString("    Not a git repository\n")
-		return b.String()
+		return emptyState("Git", "Not a git repository", "")
 	}
 
 	git := ch.Data.GitInfo
-	b.WriteString(section("Git"))
-	b.WriteString(kv("branch", git.Branch) + "\n")
+	b.WriteString(section("Branch"))
+	b.WriteString(sectionLine("  "+valueStyle.Render(git.Branch)) + "\n")
 
 	if git.LastCommit != "" {
 		b.WriteString(section("Last Commit"))
-		b.WriteString(kv("hash", git.LastCommit) + "\n")
-		b.WriteString(kv("message", git.LastCommitMsg) + "\n")
-		b.WriteString(kv("date", git.LastCommitAt) + "\n")
+		b.WriteString(kv("hash", git.LastCommit, 8) + "\n")
+		b.WriteString(kv("message", git.LastCommitMsg, 8) + "\n")
+		b.WriteString(kv("date", git.LastCommitAt, 8) + "\n")
 	}
 
 	b.WriteString(section("Working Tree"))
 	if git.DirtyFiles > 0 {
-		b.WriteString(fmt.Sprintf("    %s %d dirty files\n", statusWarning, git.DirtyFiles))
+		b.WriteString(sectionLine(fmt.Sprintf("  %s %d dirty files", statusWarning, git.DirtyFiles)) + "\n")
 	} else {
-		b.WriteString(fmt.Sprintf("    %s clean\n", statusHealthy))
+		b.WriteString(sectionLine(fmt.Sprintf("  %s clean", statusHealthy)) + "\n")
 	}
 	return b.String()
 }

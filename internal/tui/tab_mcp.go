@@ -11,28 +11,27 @@ func (m model) renderMCPTab(ch *channel.Channel) string {
 	var b strings.Builder
 
 	if len(ch.Data.MCPServers) == 0 {
-		b.WriteString(section("MCP Servers"))
-		b.WriteString("    No MCP servers configured\n")
-		return b.String()
+		return emptyState("MCP Servers", "No MCP servers configured", "Configure in .claude/settings.json")
 	}
 
 	b.WriteString(section(fmt.Sprintf("MCP Servers (%d)", len(ch.Data.MCPServers))))
 
 	for _, s := range ch.Data.MCPServers {
 		source := labelStyle.Render(fmt.Sprintf("[%s]", s.Source))
-		b.WriteString(fmt.Sprintf("\n    %s %s\n", headerStyle.Render(s.Name), source))
-		b.WriteString(kv("    type", s.Type) + "\n")
+		b.WriteString(sectionEmpty() + "\n")
+		b.WriteString(sectionLine(sectionTitleStyle.Render(s.Name)+" "+source) + "\n")
+		b.WriteString(sectionLine(fmt.Sprintf("  type: %s", s.Type)) + "\n")
 		if s.Command != "" {
-			b.WriteString(kv("    command", s.Command) + "\n")
+			b.WriteString(sectionLine(fmt.Sprintf("  command: %s", s.Command)) + "\n")
 		}
 		if len(s.Args) > 0 {
-			b.WriteString(kv("    args", strings.Join(s.Args, " ")) + "\n")
+			b.WriteString(sectionLine(fmt.Sprintf("  args: %s", strings.Join(s.Args, " "))) + "\n")
 		}
 		if s.URL != "" {
-			b.WriteString(kv("    url", s.URL) + "\n")
+			b.WriteString(sectionLine(fmt.Sprintf("  url: %s", s.URL)) + "\n")
 		}
 		if len(s.Env) > 0 {
-			b.WriteString("      env:\n")
+			b.WriteString(sectionLine("  env:") + "\n")
 			for k, v := range s.Env {
 				display := v
 				lower := strings.ToLower(k)
@@ -43,7 +42,7 @@ func (m model) renderMCPTab(ch *channel.Channel) string {
 						display = "****"
 					}
 				}
-				b.WriteString(fmt.Sprintf("        %s = %s\n", k, display))
+				b.WriteString(sectionLine(fmt.Sprintf("    %s = %s", k, display)) + "\n")
 			}
 		}
 	}

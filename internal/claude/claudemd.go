@@ -8,10 +8,10 @@ import (
 )
 
 type ClaudeMD struct {
-	Path      string
-	LineCount int
-	Sections  []string
-	Content   string
+	Path      string   `json:"path"`
+	LineCount int      `json:"line_count"`
+	Sections  []string `json:"sections"`
+	Content   string   `json:"content"`
 }
 
 func ParseClaudeMD(path string) (*ClaudeMD, error) {

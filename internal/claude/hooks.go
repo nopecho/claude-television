@@ -1,13 +1,13 @@
 package claude
 
 type HookDetail struct {
-	Event   string
-	Matcher string
-	Type    string
-	Command string
-	Async   bool
-	Timeout int
-	Source  string
+	Event   string `json:"event"`
+	Matcher string `json:"matcher"`
+	Type    string `json:"type"`
+	Command string `json:"command"`
+	Async   bool   `json:"async"`
+	Timeout int    `json:"timeout"`
+	Source  string `json:"source"`
 }
 
 func ExtractHooks(settings *Settings, source string) []HookDetail {

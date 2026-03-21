@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/nopecho/claude-television/internal/channel"
 )
 
@@ -24,17 +23,10 @@ func (m model) renderClaudeMDTab(ch *channel.Channel) string {
 			}
 		}
 
-		b.WriteString(section("Preview"))
+		b.WriteString(section("Content"))
 		lines := strings.Split(md.Content, "\n")
-		max := 20
-		if len(lines) < max {
-			max = len(lines)
-		}
-		for _, l := range lines[:max] {
+		for _, l := range lines {
 			b.WriteString(sectionLine("  "+l) + "\n")
-		}
-		if len(lines) > 20 {
-			b.WriteString(sectionLine(lipgloss.NewStyle().Foreground(subtextColor).Render(fmt.Sprintf("  ... (%d more lines)", len(lines)-20))) + "\n")
 		}
 	} else {
 		b.WriteString(emptyState("CLAUDE.md", "Not found", "Create CLAUDE.md in project root"))

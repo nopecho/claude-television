@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,7 +14,7 @@ import (
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if m.searching {
+		if m.searching || m.contentSearching || m.grouping {
 			return m.updateSearch(msg)
 		}
 		return m.updateNormal(msg)
@@ -100,9 +101,27 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case keySlash:
 		m.searching = true
+		m.searchInput.Placeholder = "Search channels..."
 		m.searchInput.SetValue("")
 		m.searchInput.Focus()
 		return m, textinput.Blink
+
+	case keyContentSearch:
+		m.contentSearching = true
+		m.searchInput.Placeholder = "Search content..."
+		m.searchInput.SetValue("")
+		m.searchInput.Focus()
+		return m, textinput.Blink
+
+	case keyGroup:
+		ch := m.selectedChannel()
+		if ch != nil && !ch.IsGlobal {
+			m.grouping = true
+			m.searchInput.Placeholder = "Set group name..."
+			m.searchInput.SetValue(ch.Group)
+			m.searchInput.Focus()
+			return m, textinput.Blink
+		}
 
 	case keyCmdEnter:
 		ch := m.selectedChannel()
@@ -126,15 +145,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				editor = os.Getenv("EDITOR")
 			}
 			if editor != "" {
-				var target string
-				switch m.detailTab {
-				case TabSettings:
-					target = ch.Path + "/.claude/settings.json"
-				case TabClaudeMD:
-					target = ch.Path + "/CLAUDE.md"
-				default:
-					target = ch.Path + "/.claude/settings.json"
-				}
+				target := editTargetForTab(ch, m.detailTab)
 				c := exec.Command(editor, target)
 				return m, tea.ExecProcess(c, func(err error) tea.Msg {
 					return editorFinishedMsg{err}
@@ -173,6 +184,8 @@ func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		m.searching = false
+		m.contentSearching = false
+		m.grouping = false
 		m.searchInput.Blur()
 		m.searchInput.SetValue("")
 		m.resetFilter()
@@ -180,14 +193,27 @@ func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.syncDetailContent()
 		return m, nil
 	case "enter":
+		if m.grouping {
+			ch := m.selectedChannel()
+			if ch != nil {
+				ch.Group = m.searchInput.Value()
+				m.updateGroups()
+				m.sortChannels()
+				m.resetFilter()
+			}
+		}
 		m.searching = false
+		m.contentSearching = false
+		m.grouping = false
 		m.searchInput.Blur()
 		m.syncDetailContent()
 		return m, nil
 	default:
 		var cmd tea.Cmd
 		m.searchInput, cmd = m.searchInput.Update(msg)
-		m.applySearch()
+		if !m.grouping {
+			m.applySearch()
+		}
 		return m, cmd
 	}
 }
@@ -198,7 +224,14 @@ func (m *model) applySearch() {
 		m.resetFilter()
 		return
 	}
-	results := channel.FuzzySearch(m.channels, query)
+
+	var results []channel.Channel
+	if m.contentSearching {
+		results = channel.ContentSearch(m.channels, query)
+	} else {
+		results = channel.FuzzySearch(m.channels, query)
+	}
+
 	if len(results) == 0 {
 		m.filtered = []int{}
 		m.channelCursor = 0
@@ -217,4 +250,24 @@ func (m *model) applySearch() {
 		}
 	}
 	m.channelCursor = 0
+}
+
+func (m *model) updateGroups() {
+	groups := map[string][]string{}
+	for _, ch := range m.channels {
+		if ch.Group != "" && !ch.IsGlobal {
+			groups[ch.Group] = append(groups[ch.Group], ch.Name)
+		}
+	}
+	m.cfg.Channels.Groups = groups
+	config.Save(m.cfg)
+}
+
+func editTargetForTab(ch *channel.Channel, tab DetailTab) string {
+	switch tab {
+	case TabClaudeMD:
+		return filepath.Join(ch.Path, "CLAUDE.md")
+	default:
+		return filepath.Join(ch.Path, ".claude", "settings.json")
+	}
 }

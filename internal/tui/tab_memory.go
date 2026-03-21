@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/nopecho/claude-television/internal/channel"
+	"github.com/nopecho/claude-television/internal/claude"
 )
 
 func (m model) renderMemoryTab(ch *channel.Channel) string {
@@ -16,24 +17,17 @@ func (m model) renderMemoryTab(ch *channel.Channel) string {
 
 	b.WriteString(section(fmt.Sprintf("Memory Files (%d)", len(ch.Data.MemoryFiles))))
 
-	byType := map[string][]int{}
-	var typeOrder []string
-	for i, mf := range ch.Data.MemoryFiles {
-		t := mf.Type
-		if t == "" {
-			t = "unknown"
+	order, groups := orderedGroup(ch.Data.MemoryFiles, func(mf claude.MemoryFile) string {
+		if mf.Type == "" {
+			return "unknown"
 		}
-		if _, exists := byType[t]; !exists {
-			typeOrder = append(typeOrder, t)
-		}
-		byType[t] = append(byType[t], i)
-	}
+		return mf.Type
+	})
 
-	for _, t := range typeOrder {
+	for _, t := range order {
 		b.WriteString(sectionEmpty() + "\n")
 		b.WriteString(sectionLine(sectionTitleStyle.Render("["+t+"]")) + "\n")
-		for _, idx := range byType[t] {
-			mf := ch.Data.MemoryFiles[idx]
+		for _, mf := range groups[t] {
 			b.WriteString(sectionLine("  "+valueStyle.Render(mf.Name)) + "\n")
 			if mf.Description != "" {
 				b.WriteString(sectionLine("    "+labelStyle.Render(mf.Description)) + "\n")

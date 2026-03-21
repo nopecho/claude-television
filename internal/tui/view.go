@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/nopecho/claude-television/internal/channel"
 )
 
 func (m model) View() string {
@@ -17,9 +18,17 @@ func (m model) View() string {
 	contentHeight := m.height - 7 // header + tab bar + help + borders
 
 	header := titleStyle.Render("ctv")
-	if m.searching {
+	if m.searching || m.contentSearching || m.grouping {
 		header += "  " + m.searchInput.View()
-		header += " " + labelStyle.Render(fmt.Sprintf("(%d matches)", len(m.filtered)))
+		if m.contentSearching {
+			header += " " + labelStyle.Render("(content search)")
+		} else if m.grouping {
+			header += " " + labelStyle.Render("(enter to set group, empty to clear)")
+		} else {
+			header += " " + labelStyle.Render(fmt.Sprintf("(%d matches)", len(m.filtered)))
+		}
+	} else {
+		header += "  " + m.renderSummary()
 	}
 	header += "\n"
 
@@ -87,6 +96,34 @@ func (m model) View() string {
 	return header + content + "\n" + help
 }
 
+func (m model) renderSummary() string {
+	healthy, warning, errCount, issues := 0, 0, 0, 0
+	for _, ch := range m.channels {
+		if ch.IsGlobal {
+			continue
+		}
+		switch ch.Status {
+		case channel.StatusHealthy:
+			healthy++
+		case channel.StatusWarning:
+			warning++
+		case channel.StatusError:
+			errCount++
+		}
+		if ch.Data != nil {
+			issues += len(ch.Data.HealthIssues)
+		}
+	}
+	summary := labelStyle.Render(fmt.Sprintf("%d channels", healthy+warning+errCount))
+	if errCount > 0 {
+		summary += " " + lipgloss.NewStyle().Foreground(errorColor).Render(fmt.Sprintf("%d err", errCount))
+	}
+	if issues > 0 {
+		summary += " " + lipgloss.NewStyle().Foreground(warningColor).Render(fmt.Sprintf("%d issues", issues))
+	}
+	return summary
+}
+
 func (m model) renderDetailTabs() string {
 	var tabs []string
 	var underlines []string
@@ -107,28 +144,20 @@ func (m model) renderDetailTabs() string {
 func (m model) renderHelpBar() string {
 	var entries []string
 
-	if m.searching {
+	if m.searching || m.contentSearching || m.grouping {
 		entries = []string{
-			helpEntry("type", "to filter"),
+			helpEntry("type", "input"),
 			helpEntry("Enter", "confirm"),
 			helpEntry("Esc", "cancel"),
 		}
-	} else if m.focus == detailPanel {
-		entries = []string{
-			helpEntry("j/k", "scroll"),
-			helpEntry("←→", "tabs"),
-			helpEntry("Tab", "focus"),
-			helpEntry("/", "search"),
-			helpEntry("p", "pin"),
-			helpEntry("e", "edit"),
-			helpEntry("q", "quit"),
-		}
 	} else {
 		entries = []string{
-			helpEntry("j/k", "navigate"),
+			helpEntry("j/k", "move"),
 			helpEntry("←→", "tabs"),
 			helpEntry("Tab", "focus"),
 			helpEntry("/", "search"),
+			helpEntry("?", "content"),
+			helpEntry("g", "group"),
 			helpEntry("p", "pin"),
 			helpEntry("e", "edit"),
 			helpEntry("q", "quit"),

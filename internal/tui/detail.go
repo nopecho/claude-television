@@ -16,6 +16,10 @@ func (m model) renderDetailContentString() string {
 		return m.renderHooksTab(ch)
 	case TabMCP:
 		return m.renderMCPTab(ch)
+	case TabPlugins:
+		return m.renderPluginsTab(ch)
+	case TabHealth:
+		return m.renderHealthTab(ch)
 	case TabGit:
 		return m.renderGitTab(ch)
 	case TabMemory:

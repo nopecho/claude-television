@@ -17,11 +17,13 @@ const (
 	TabClaudeMD
 	TabHooks
 	TabMCP
+	TabPlugins
+	TabHealth
 	TabGit
 	TabMemory
 )
 
-var detailTabNames = []string{"Settings", "CLAUDE.md", "Hooks", "MCP", "Git", "Memory"}
+var detailTabNames = []string{"Settings", "CLAUDE.md", "Hooks", "MCP", "Plugins", "Health", "Git", "Memory"}
 
 type focusPanel int
 
@@ -31,18 +33,20 @@ const (
 )
 
 type model struct {
-	channels      []channel.Channel
-	cfg           *config.Config
-	channelCursor int
-	detailTab     DetailTab
-	width         int
-	height        int
-	focus         focusPanel
-	viewport      viewport.Model
-	searchInput   textinput.Model
-	searching     bool
-	filtered      []int
-	navigateTo    string
+	channels         []channel.Channel
+	cfg              *config.Config
+	channelCursor    int
+	detailTab        DetailTab
+	width            int
+	height           int
+	focus            focusPanel
+	viewport         viewport.Model
+	searchInput      textinput.Model
+	searching        bool
+	contentSearching bool
+	grouping         bool
+	filtered         []int
+	navigateTo       string
 }
 
 func newModel(channels []channel.Channel, cfg *config.Config) model {
@@ -104,6 +108,15 @@ func (m model) selectedChannel() *channel.Channel {
 	}
 	idx := m.filtered[m.channelCursor]
 	return &m.channels[idx]
+}
+
+func (m model) findGlobalChannel() *channel.Channel {
+	for i := range m.channels {
+		if m.channels[i].IsGlobal {
+			return &m.channels[i]
+		}
+	}
+	return nil
 }
 
 func (m model) Init() tea.Cmd {

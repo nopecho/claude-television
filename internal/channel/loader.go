@@ -29,20 +29,16 @@ func (l *channelLoader) load() (*ChannelData, map[string]time.Time, error) {
 	var g errgroup.Group
 
 	var (
-		settings      *claude.Settings
-		mtSettings    time.Time
-		localSet      *claude.Settings
-		mtLocal       time.Time
-		claudeMD      *claude.ClaudeMD
-		mtClaudeMD    time.Time
-		subClaudeMDs  []claude.ClaudeMD
-		mtSubMDs      map[string]time.Time
-		gitInfo       *GitInfo
-		memFiles      []claude.MemoryFile
-		globalPlugins []claude.Plugin
-		globalSkills  []claude.Skill
-		globalHooks   []claude.HookDetail
-		globalMCP     []claude.MCPServer
+		settings     *claude.Settings
+		mtSettings   time.Time
+		localSet     *claude.Settings
+		mtLocal      time.Time
+		claudeMD     *claude.ClaudeMD
+		mtClaudeMD   time.Time
+		subClaudeMDs []claude.ClaudeMD
+		mtSubMDs     map[string]time.Time
+		gitInfo      *GitInfo
+		memFiles     []claude.MemoryFile
 	)
 
 	g.Go(func() error {
@@ -86,20 +82,6 @@ func (l *channelLoader) load() (*ChannelData, map[string]time.Time, error) {
 			memFiles, _ = claude.ScanMemoryFiles(memoryDir)
 			return nil
 		})
-
-		g.Go(func() error {
-			installed, _ := claude.ParseInstalledPlugins(filepath.Join(l.claudeHome, "plugins", "installed_plugins.json"))
-			var enabled map[string]bool
-			globalSettings, _ := claude.ParseSettings(filepath.Join(l.claudeHome, "settings.json"))
-			if globalSettings != nil {
-				enabled = globalSettings.EnabledPlugins
-				globalHooks, _ = claude.ExtractHooks(globalSettings, "global")
-				globalMCP, _ = claude.ExtractMCPServers(globalSettings, "global")
-			}
-			globalPlugins = claude.MergePluginData(installed, enabled)
-			globalSkills, _ = claude.ScanLocalSkills(filepath.Join(l.claudeHome, "skills"))
-			return nil
-		})
 	}
 
 	if err := g.Wait(); err != nil {
@@ -126,18 +108,18 @@ func (l *channelLoader) load() (*ChannelData, map[string]time.Time, error) {
 
 	data.GitInfo = gitInfo
 	data.MemoryFiles = memFiles
-	data.Plugins = globalPlugins
-	data.LocalSkills = globalSkills
 
 	if data.Settings != nil {
 		data.Hooks, _ = claude.ExtractHooks(data.Settings, "project")
 		data.MCPServers, _ = claude.ExtractMCPServers(data.Settings, "project")
 	}
 
-	if l.claudeHome != "" {
-		data.Hooks = append(globalHooks, data.Hooks...)
-		data.MCPServers = append(globalMCP, data.MCPServers...)
-	}
+	data.HealthIssues = claude.CheckHealth(&claude.HealthInput{
+		ClaudeMD:   data.ClaudeMD,
+		Settings:   data.Settings,
+		MCPServers: data.MCPServers,
+		Hooks:      data.Hooks,
+	})
 
 	return data, mtimes, nil
 }
@@ -160,8 +142,11 @@ func ExpectedFiles(ch *Channel) []string {
 	}
 }
 
+const maxSubClaudeMDDepth = 4
+
 func scanSubClaudeMDs(projectDir, rootClaudeMD string, mtimes map[string]time.Time) []claude.ClaudeMD {
 	var result []claude.ClaudeMD
+	baseDepth := strings.Count(projectDir, string(filepath.Separator))
 	skipDirs := map[string]bool{
 		".git": true, "node_modules": true, "vendor": true, ".worktrees": true,
 		"dist": true, "build": true, ".next": true, "target": true,
@@ -172,6 +157,10 @@ func scanSubClaudeMDs(projectDir, rootClaudeMD string, mtimes map[string]time.Ti
 			return nil
 		}
 		if d.IsDir() {
+			depth := strings.Count(path, string(filepath.Separator)) - baseDepth
+			if depth > maxSubClaudeMDDepth {
+				return filepath.SkipDir
+			}
 			if skipDirs[d.Name()] {
 				return filepath.SkipDir
 			}
@@ -195,25 +184,42 @@ func loadGitInfo(projectPath string) *GitInfo {
 		return nil
 	}
 	info := &GitInfo{}
-	if out, err := runGit(projectPath, "rev-parse", "--abbrev-ref", "HEAD"); err == nil {
-		info.Branch = strings.TrimSpace(out)
-	}
-	if out, err := runGit(projectPath, "log", "-1", "--format=%h|%s|%ci"); err == nil {
-		parts := strings.SplitN(strings.TrimSpace(out), "|", 3)
-		if len(parts) == 3 {
-			info.LastCommit = parts[0]
-			info.LastCommitMsg = parts[1]
-			info.LastCommitAt = parts[2]
+
+	var g errgroup.Group
+
+	g.Go(func() error {
+		if out, err := runGit(projectPath, "rev-parse", "--abbrev-ref", "HEAD"); err == nil {
+			info.Branch = strings.TrimSpace(out)
 		}
-	}
-	if out, err := runGit(projectPath, "status", "--porcelain"); err == nil {
-		trimmed := strings.TrimSpace(out)
-		if trimmed == "" {
-			info.DirtyFiles = 0
-		} else {
-			info.DirtyFiles = len(strings.Split(trimmed, "\n"))
+		return nil
+	})
+
+	g.Go(func() error {
+		if out, err := runGit(projectPath, "log", "-1", "--format=%h|%s|%ci"); err == nil {
+			parts := strings.SplitN(strings.TrimSpace(out), "|", 3)
+			if len(parts) == 3 {
+				info.LastCommit = parts[0]
+				info.LastCommitMsg = parts[1]
+				info.LastCommitAt = parts[2]
+			}
 		}
-	}
+		return nil
+	})
+
+	g.Go(func() error {
+		if out, err := runGit(projectPath, "status", "--porcelain"); err == nil {
+			trimmed := strings.TrimSpace(out)
+			if trimmed == "" {
+				info.DirtyFiles = 0
+			} else {
+				info.DirtyFiles = len(strings.Split(trimmed, "\n"))
+			}
+		}
+		return nil
+	})
+
+	_ = g.Wait()
+
 	return info
 }
 

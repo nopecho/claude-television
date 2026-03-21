@@ -23,6 +23,7 @@ type Channel struct {
 	Status     ChannelStatus `json:"status"`
 	LastSynced time.Time     `json:"last_synced"`
 	Data       *ChannelData  `json:"-"`
+	IsGlobal   bool          `json:"-"`
 }
 
 type ChannelData struct {
@@ -34,8 +35,9 @@ type ChannelData struct {
 	MCPServers    []claude.MCPServer  `json:"mcp_servers"`
 	Plugins       []claude.Plugin     `json:"plugins"`
 	LocalSkills   []claude.Skill      `json:"local_skills"`
-	GitInfo       *GitInfo            `json:"git_info"`
-	MemoryFiles   []claude.MemoryFile `json:"memory_files"`
+	GitInfo      *GitInfo             `json:"git_info"`
+	MemoryFiles  []claude.MemoryFile  `json:"memory_files"`
+	HealthIssues []claude.HealthIssue `json:"health_issues"`
 }
 
 type GitInfo struct {

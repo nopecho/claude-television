@@ -23,6 +23,8 @@ func (m model) renderDetailContent(height int) string {
 		content = m.renderMCPTab(ch)
 	case TabPlugins:
 		content = m.renderPluginsTab(ch)
+	case TabHealth:
+		content = m.renderHealthTab(ch)
 	case TabGit:
 		content = m.renderGitTab(ch)
 	case TabMemory:

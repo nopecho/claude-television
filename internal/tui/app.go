@@ -16,11 +16,12 @@ const (
 	TabHooks
 	TabMCP
 	TabPlugins
+	TabHealth
 	TabGit
 	TabMemory
 )
 
-var detailTabNames = []string{"Settings", "CLAUDE.md", "Hooks", "MCP", "Plugins", "Git", "Memory"}
+var detailTabNames = []string{"Settings", "CLAUDE.md", "Hooks", "MCP", "Plugins", "Health", "Git", "Memory"}
 
 type model struct {
 	channels      []channel.Channel
@@ -30,10 +31,12 @@ type model struct {
 	detailScroll  int
 	width         int
 	height        int
-	searching     bool
-	searchQuery   string
-	filtered      []int
-	navigateTo    string
+	searching        bool
+	contentSearching bool
+	grouping         bool
+	searchQuery      string
+	filtered         []int
+	navigateTo       string
 }
 
 func newModel(channels []channel.Channel, cfg *config.Config) model {
@@ -87,6 +90,15 @@ func (m model) selectedChannel() *channel.Channel {
 	}
 	idx := m.filtered[m.channelCursor]
 	return &m.channels[idx]
+}
+
+func (m model) findGlobalChannel() *channel.Channel {
+	for i := range m.channels {
+		if m.channels[i].IsGlobal {
+			return &m.channels[i]
+		}
+	}
+	return nil
 }
 
 func (m model) Init() tea.Cmd {

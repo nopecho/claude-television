@@ -139,6 +139,13 @@ func (l *channelLoader) load() (*ChannelData, map[string]time.Time, error) {
 		data.MCPServers = append(globalMCP, data.MCPServers...)
 	}
 
+	data.HealthIssues = claude.CheckHealth(&claude.HealthInput{
+		ClaudeMD:   data.ClaudeMD,
+		Settings:   data.Settings,
+		MCPServers: data.MCPServers,
+		Hooks:      data.Hooks,
+	})
+
 	return data, mtimes, nil
 }
 

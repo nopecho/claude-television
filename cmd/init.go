@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/nopecho/claude-television/internal/channel"
 	"github.com/nopecho/claude-television/internal/config"
@@ -36,26 +35,7 @@ var initCmd = &cobra.Command{
 		cacheTTL := config.ParseDuration("24h")
 		cache := channel.NewCache(filepath.Join(configDir, "cache"), cacheTTL)
 
-		var wg sync.WaitGroup
-		for i := range reg.Channels {
-			wg.Add(1)
-			go func(ch *channel.Channel) {
-				defer wg.Done()
-				data, mtimes, err := channel.LoadChannelData(ch, claudeHome)
-				if err != nil {
-					ch.Status = channel.StatusError
-					return
-				}
-				ch.Data = data
-				ch.Status = determineStatus(ch, data)
-				cache.Save(&channel.CacheEntry{
-					ChannelID:  ch.ID,
-					Data:       *data,
-					FileMtimes: mtimes,
-				})
-			}(&reg.Channels[i])
-		}
-		wg.Wait()
+		loadAllChannels(reg.Channels, claudeHome, cache)
 
 		regPath := filepath.Join(configDir, "channels.json")
 		if err := channel.SaveRegistry(reg, regPath); err != nil {
@@ -83,16 +63,6 @@ var initCmd = &cobra.Command{
 
 		return nil
 	},
-}
-
-func determineStatus(ch *channel.Channel, data *channel.ChannelData) channel.ChannelStatus {
-	if _, err := os.Stat(ch.Path); err != nil {
-		return channel.StatusError
-	}
-	if data.Settings == nil && data.ClaudeMD == nil {
-		return channel.StatusWarning
-	}
-	return channel.StatusHealthy
 }
 
 func statusChar(s channel.ChannelStatus) string {

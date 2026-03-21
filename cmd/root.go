@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/nopecho/claude-television/internal/channel"
 	"github.com/nopecho/claude-television/internal/config"
@@ -50,34 +49,7 @@ var rootCmd = &cobra.Command{
 		cacheTTL := config.ParseDuration(cfg.Channels.CacheTTL)
 		cache := channel.NewCache(filepath.Join(configDir, "cache"), cacheTTL)
 
-		var wg sync.WaitGroup
-		for i := range reg.Channels {
-			wg.Add(1)
-			go func(ch *channel.Channel) {
-				defer wg.Done()
-				expected := channel.ExpectedFiles(ch)
-				if cache.IsValid(ch.ID, expected) {
-					entry, err := cache.Load(ch.ID)
-					if err == nil && entry != nil {
-						ch.Data = &entry.Data
-						return
-					}
-				}
-				data, mtimes, err := channel.LoadChannelData(ch, claudeHome)
-				if err != nil {
-					ch.Status = channel.StatusError
-					return
-				}
-				ch.Data = data
-				ch.Status = determineStatus(ch, data)
-				cache.Save(&channel.CacheEntry{
-					ChannelID:  ch.ID,
-					Data:       *data,
-					FileMtimes: mtimes,
-				})
-			}(&reg.Channels[i])
-		}
-		wg.Wait()
+		loadAllChannels(reg.Channels, claudeHome, cache)
 
 		channel.SaveRegistry(reg, regPath)
 

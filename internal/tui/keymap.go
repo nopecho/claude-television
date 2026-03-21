@@ -18,8 +18,9 @@ const (
 	keySlash
 	keyEscape
 	keyPin
-	keyGroup
 	keyEdit
+	keyScrollDown
+	keyScrollUp
 )
 
 func parseKey(msg tea.KeyMsg) keyAction {
@@ -48,10 +49,12 @@ func parseKey(msg tea.KeyMsg) keyAction {
 		return keyEscape
 	case "p":
 		return keyPin
-	case "g":
-		return keyGroup
 	case "e":
 		return keyEdit
+	case "ctrl+d":
+		return keyScrollDown
+	case "ctrl+u":
+		return keyScrollUp
 	}
 	return keyNone
 }

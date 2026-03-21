@@ -8,14 +8,14 @@ A read-only CLI tool that explores the local configuration state of Claude Code 
 - `go run .` — Run
 - `go test ./...` — Run all tests
 - `go test ./internal/claude/... -v` — Test claude package
-- `go test ./internal/scanner/... -v` — Test scanner package
+- `go test ./internal/channel/... -v` — Test channel package
 
 ## Project Structure
 
 - `cmd/` — Cobra CLI commands
 - `internal/claude/` — Claude Code configuration file parsing (settings, CLAUDE.md, plugins, skills, hooks, projects)
-- `internal/scanner/` — Project directory scanning
-- `internal/config/` — Viper-based ctv self-configuration management
+- `internal/channel/` — Channel loading, caching, registry, search, and sync
+- `internal/config/` — ctv self-configuration management
 - `internal/tui/` — Bubble Tea TUI components
 
 ## Coding Conventions

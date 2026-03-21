@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -95,19 +96,25 @@ func ExpectedFiles(ch *Channel) []string {
 
 func scanSubClaudeMDs(projectDir, rootClaudeMD string, mtimes map[string]time.Time) []claude.ClaudeMD {
 	var result []claude.ClaudeMD
-	filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
+	skipDirs := map[string]bool{
+		".git": true, "node_modules": true, "vendor": true, ".worktrees": true,
+		"dist": true, "build": true, ".next": true, "target": true,
+		"__pycache__": true, ".venv": true, ".tox": true,
+	}
+	filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if info.IsDir() {
-			base := filepath.Base(path)
-			if base == ".git" || base == "node_modules" || base == "vendor" || base == ".worktrees" {
+		if d.IsDir() {
+			if skipDirs[d.Name()] {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if info.Name() == "CLAUDE.md" && path != rootClaudeMD {
-			mtimes[path] = info.ModTime()
+		if d.Name() == "CLAUDE.md" && path != rootClaudeMD {
+			if info, err := d.Info(); err == nil {
+				mtimes[path] = info.ModTime()
+			}
 			if md, err := claude.ParseClaudeMD(path); err == nil {
 				result = append(result, *md)
 			}

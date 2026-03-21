@@ -96,6 +96,8 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
+type editorFinishedMsg struct{ err error }
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -106,6 +108,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+	case editorFinishedMsg:
+		// Editor finished, no action needed - TUI resumes automatically
+		return m, nil
 	}
 	return m, nil
 }
@@ -144,14 +149,51 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		ch := m.selectedChannel()
 		if ch != nil {
 			ch.Pinned = !ch.Pinned
+			m.updatePins()
 		}
 	case keyEdit:
 		ch := m.selectedChannel()
 		if ch != nil {
-			m.openEditor(ch)
+			editor := m.cfg.Editor
+			if editor == "" {
+				editor = os.Getenv("EDITOR")
+			}
+			if editor != "" {
+				var target string
+				switch m.detailTab {
+				case TabSettings:
+					target = ch.Path + "/.claude/settings.json"
+				case TabClaudeMD:
+					target = ch.Path + "/CLAUDE.md"
+				default:
+					target = ch.Path + "/.claude/settings.json"
+				}
+				c := exec.Command(editor, target)
+				return m, tea.ExecProcess(c, func(err error) tea.Msg {
+					return editorFinishedMsg{err}
+				})
+			}
+		}
+	case keyScrollDown:
+		m.detailScroll += 10
+	case keyScrollUp:
+		m.detailScroll -= 10
+		if m.detailScroll < 0 {
+			m.detailScroll = 0
 		}
 	}
 	return m, nil
+}
+
+func (m *model) updatePins() {
+	var pins []string
+	for _, ch := range m.channels {
+		if ch.Pinned {
+			pins = append(pins, ch.Name)
+		}
+	}
+	m.cfg.Channels.Pins = pins
+	config.Save(m.cfg)
 }
 
 func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -195,29 +237,6 @@ func (m *model) applySearch() {
 	m.channelCursor = 0
 }
 
-func (m model) openEditor(ch *channel.Channel) {
-	editor := m.cfg.Editor
-	if editor == "" {
-		editor = os.Getenv("EDITOR")
-	}
-	if editor == "" {
-		return
-	}
-	var target string
-	switch m.detailTab {
-	case TabSettings:
-		target = ch.Path + "/.claude/settings.json"
-	case TabClaudeMD:
-		target = ch.Path + "/CLAUDE.md"
-	default:
-		target = ch.Path + "/.claude/settings.json"
-	}
-	cmd := exec.Command(editor, target)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Run()
-}
 
 func (m model) View() string {
 	if m.width == 0 {
@@ -246,7 +265,7 @@ func (m model) View() string {
 
 	content := lipgloss.JoinHorizontal(lipgloss.Top, list, detail)
 
-	help := helpStyle.Render("  j/k move  ←→/Tab switch tab  / search  Alt+Enter cd  p pin  e edit  q quit")
+	help := helpStyle.Render("  j/k move  ←→/Tab switch tab  / search  Ctrl+d/u scroll  Alt+Enter cd  p pin  e edit  q quit")
 
 	return header + content + "\n" + help
 }

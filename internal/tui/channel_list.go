@@ -80,7 +80,9 @@ func (m model) renderChannelList(height int) string {
 		ch := m.channels[item.chIdx]
 		icon := statusIconStr(ch.Status)
 		prefix := "  "
-		if ch.Pinned {
+		if ch.IsGlobal {
+			prefix = "⚙ "
+		} else if ch.Pinned {
 			prefix = pinIcon + " "
 		}
 

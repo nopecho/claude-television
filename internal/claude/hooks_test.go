@@ -28,7 +28,10 @@ func TestExtractHooks(t *testing.T) {
 		},
 	}
 
-	hooks := claude.ExtractHooks(settings, "global")
+	hooks, err := claude.ExtractHooks(settings, "global")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(hooks) != 2 {
 		t.Fatalf("hooks len = %d, want 2", len(hooks))
 	}
@@ -63,8 +66,11 @@ func TestExtractHooks(t *testing.T) {
 
 func TestExtractHooks_Empty(t *testing.T) {
 	settings := &claude.Settings{}
-	hooks := claude.ExtractHooks(settings, "global")
-	if hooks != nil {
-		t.Errorf("expected nil, got %v", hooks)
+	hooks, err := claude.ExtractHooks(settings, "global")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(hooks) != 0 {
+		t.Errorf("expected empty slice, got %v", hooks)
 	}
 }

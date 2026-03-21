@@ -19,11 +19,11 @@ func ScanMemoryFiles(dir string) ([]MemoryFile, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return []MemoryFile{}, nil
 		}
 		return nil, fmt.Errorf("scan memory: %w", err)
 	}
-	var result []MemoryFile
+	result := []MemoryFile{}
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 			continue

@@ -46,12 +46,12 @@ func LoadChannelData(ch *Channel, claudeHome string) (*ChannelData, map[string]t
 
 	// Hooks (merge project + global if available)
 	if data.Settings != nil {
-		data.Hooks = claude.ExtractHooks(data.Settings, "project")
+		data.Hooks, _ = claude.ExtractHooks(data.Settings, "project")
 	}
 
 	// MCP Servers from project settings
 	if data.Settings != nil {
-		data.MCPServers = claude.ExtractMCPServers(data.Settings, "project")
+		data.MCPServers, _ = claude.ExtractMCPServers(data.Settings, "project")
 	}
 
 	// Git info
@@ -71,10 +71,10 @@ func LoadChannelData(ch *Channel, claudeHome string) (*ChannelData, map[string]t
 		if globalSettings != nil {
 			enabled = globalSettings.EnabledPlugins
 			// Merge global hooks
-			globalHooks := claude.ExtractHooks(globalSettings, "global")
+			globalHooks, _ := claude.ExtractHooks(globalSettings, "global")
 			data.Hooks = append(globalHooks, data.Hooks...)
 			// Merge global MCP servers
-			globalMCP := claude.ExtractMCPServers(globalSettings, "global")
+			globalMCP, _ := claude.ExtractMCPServers(globalSettings, "global")
 			data.MCPServers = append(globalMCP, data.MCPServers...)
 		}
 		data.Plugins = claude.MergePluginData(installed, enabled)

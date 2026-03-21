@@ -12,7 +12,10 @@ func TestExtractMCPServers(t *testing.T) {
 		t.Fatalf("parse settings: %v", err)
 	}
 
-	servers := ExtractMCPServers(settings, "global")
+	servers, err := ExtractMCPServers(settings, "global")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(servers) != 2 {
 		t.Fatalf("expected 2 servers, got %d", len(servers))
 	}
@@ -51,7 +54,10 @@ func TestExtractMCPServers(t *testing.T) {
 }
 
 func TestExtractMCPServersNil(t *testing.T) {
-	servers := ExtractMCPServers(nil, "global")
+	servers, err := ExtractMCPServers(nil, "global")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(servers) != 0 {
 		t.Errorf("expected 0 servers for nil settings, got %d", len(servers))
 	}

@@ -10,11 +10,11 @@ type HookDetail struct {
 	Source  string `json:"source"`
 }
 
-func ExtractHooks(settings *Settings, source string) []HookDetail {
-	if settings.Hooks == nil {
-		return nil
+func ExtractHooks(settings *Settings, source string) ([]HookDetail, error) {
+	if settings == nil || settings.Hooks == nil {
+		return []HookDetail{}, nil
 	}
-	var result []HookDetail
+	result := []HookDetail{}
 	for event, rules := range settings.Hooks {
 		for _, rule := range rules {
 			for _, action := range rule.Hooks {
@@ -27,5 +27,5 @@ func ExtractHooks(settings *Settings, source string) []HookDetail {
 			}
 		}
 	}
-	return result
+	return result, nil
 }

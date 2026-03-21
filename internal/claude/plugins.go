@@ -39,7 +39,7 @@ func ParseInstalledPlugins(path string) (map[string]InstalledPlugin, error) {
 
 func MergePluginData(installed map[string]InstalledPlugin, enabled map[string]bool) []Plugin {
 	seen := make(map[string]bool)
-	var result []Plugin
+	result := []Plugin{}
 	for key, ip := range installed {
 		name, marketplace := splitPluginKey(key)
 		result = append(result, Plugin{

@@ -25,7 +25,44 @@ func (m model) renderSettingsTab(ch *channel.Channel) string {
 		b.WriteString(section("Settings"))
 		b.WriteString("    No settings.json found\n")
 	}
+
+	if !ch.IsGlobal {
+		globalCh := m.findGlobalChannel()
+		if globalCh != nil && globalCh.Data != nil && globalCh.Data.Settings != nil && ch.Data.Settings != nil {
+			diffs := diffSettings(globalCh.Data.Settings, ch.Data.Settings)
+			if len(diffs) > 0 {
+				b.WriteString(section("Overrides from Global"))
+				for _, d := range diffs {
+					b.WriteString(fmt.Sprintf("    %s: %s → %s\n",
+						labelStyle.Render(d.key),
+						labelStyle.Render(d.globalVal),
+						valueStyle.Render(d.projectVal)))
+				}
+			}
+		}
+	}
+
 	return b.String()
+}
+
+type settingsDiff struct {
+	key        string
+	globalVal  string
+	projectVal string
+}
+
+func diffSettings(global, project *claude.Settings) []settingsDiff {
+	var diffs []settingsDiff
+	if project.Model != "" && project.Model != global.Model {
+		diffs = append(diffs, settingsDiff{"model", global.Model, project.Model})
+	}
+	if project.Language != "" && project.Language != global.Language {
+		diffs = append(diffs, settingsDiff{"language", global.Language, project.Language})
+	}
+	if project.TeammateMode != "" && project.TeammateMode != global.TeammateMode {
+		diffs = append(diffs, settingsDiff{"teammateMode", global.TeammateMode, project.TeammateMode})
+	}
+	return diffs
 }
 
 func renderSettingsSection(s *claude.Settings, title string) string {

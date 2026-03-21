@@ -21,17 +21,10 @@ func (m model) renderClaudeMDTab(ch *channel.Channel) string {
 				b.WriteString(fmt.Sprintf("    • %s\n", s))
 			}
 		}
-		b.WriteString(section("Preview"))
+		b.WriteString(section("Content"))
 		lines := strings.Split(md.Content, "\n")
-		max := 20
-		if len(lines) < max {
-			max = len(lines)
-		}
-		for _, l := range lines[:max] {
+		for _, l := range lines {
 			b.WriteString("    " + l + "\n")
-		}
-		if len(lines) > 20 {
-			b.WriteString(fmt.Sprintf("    ... (%d more lines)\n", len(lines)-20))
 		}
 	} else {
 		b.WriteString(section("CLAUDE.md"))

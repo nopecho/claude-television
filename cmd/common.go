@@ -16,12 +16,9 @@ func loadAllChannels(channels []channel.Channel, claudeHome string, cache *chann
 
 			if cache != nil {
 				expected := channel.ExpectedFiles(ch)
-				if cache.IsValid(ch.ID, expected) {
-					entry, err := cache.Load(ch.ID)
-					if err == nil && entry != nil {
-						ch.Data = &entry.Data
-						return
-					}
+				if entry, valid := cache.LoadIfValid(ch.ID, expected); valid {
+					ch.Data = &entry.Data
+					return
 				}
 			}
 

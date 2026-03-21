@@ -53,28 +53,33 @@ func (c *Cache) Load(channelID string) (*CacheEntry, error) {
 	return &entry, nil
 }
 
-func (c *Cache) IsValid(channelID string, expectedFiles []string) bool {
+func (c *Cache) LoadIfValid(channelID string, expectedFiles []string) (*CacheEntry, bool) {
 	entry, err := c.Load(channelID)
 	if err != nil || entry == nil {
-		return false
+		return nil, false
 	}
 	if time.Since(entry.CachedAt) > c.ttl {
-		return false
+		return nil, false
 	}
 	for _, path := range expectedFiles {
 		if _, tracked := entry.FileMtimes[path]; !tracked {
 			if _, err := os.Stat(path); err == nil {
-				return false
+				return nil, false
 			}
 		}
 	}
 	for path, cachedMtime := range entry.FileMtimes {
 		info, err := os.Stat(path)
 		if err != nil || info.ModTime().After(cachedMtime) {
-			return false
+			return nil, false
 		}
 	}
-	return true
+	return entry, true
+}
+
+func (c *Cache) IsValid(channelID string, expectedFiles []string) bool {
+	_, valid := c.LoadIfValid(channelID, expectedFiles)
+	return valid
 }
 
 func (c *Cache) Delete(channelID string) error {

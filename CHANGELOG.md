@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.0-pre](https://github.com/nopecho/claude-television/compare/v0.0.1-pre...v0.1.0-pre) (2026-03-21)
+
+
+### Features
+
+* introduce channel system with hybrid TUI dashboard ([#3](https://github.com/nopecho/claude-television/issues/3)) ([6c1a8a9](https://github.com/nopecho/claude-television/commit/6c1a8a952c7772ed42987d58dfe58a22773f8ec6))
+
 ## [0.0.1-pre](https://github.com/nopecho/claude-television/compare/v0.0.0-pre...v0.0.1-pre) (2026-03-21)
 
 

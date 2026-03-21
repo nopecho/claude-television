@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.0.1-pre](https://github.com/nopecho/claude-television/compare/v0.0.0-pre...v0.0.1-pre) (2026-03-21)
+
+
+### Bug Fixes
+
+* downgrade goreleaser config version to 1 ([aaba9e3](https://github.com/nopecho/claude-television/commit/aaba9e34fa474252e7acf696fadaba4b7be737a7))
+
 ## 0.0.0-pre (2026-03-21)
 
 

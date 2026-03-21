@@ -9,79 +9,145 @@ import (
 	"time"
 
 	"github.com/nopecho/claude-television/internal/claude"
+	"golang.org/x/sync/errgroup"
 )
+
+type channelLoader struct {
+	ch         *Channel
+	claudeHome string
+}
+
+func (l *channelLoader) load() (*ChannelData, map[string]time.Time, error) {
+	data := &ChannelData{}
+	mtimes := map[string]time.Time{}
+
+	claudeDir := filepath.Join(l.ch.Path, ".claude")
+	settingsPath := filepath.Join(claudeDir, "settings.json")
+	localSettingsPath := filepath.Join(claudeDir, "settings.local.json")
+	claudeMDPath := filepath.Join(l.ch.Path, "CLAUDE.md")
+
+	var g errgroup.Group
+
+	var (
+		settings      *claude.Settings
+		mtSettings    time.Time
+		localSet      *claude.Settings
+		mtLocal       time.Time
+		claudeMD      *claude.ClaudeMD
+		mtClaudeMD    time.Time
+		subClaudeMDs  []claude.ClaudeMD
+		mtSubMDs      map[string]time.Time
+		gitInfo       *GitInfo
+		memFiles      []claude.MemoryFile
+		globalPlugins []claude.Plugin
+		globalSkills  []claude.Skill
+		globalHooks   []claude.HookDetail
+		globalMCP     []claude.MCPServer
+	)
+
+	g.Go(func() error {
+		if info, err := os.Stat(settingsPath); err == nil {
+			mtSettings = info.ModTime()
+			settings, _ = claude.ParseSettings(settingsPath)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		if info, err := os.Stat(localSettingsPath); err == nil {
+			mtLocal = info.ModTime()
+			localSet, _ = claude.ParseSettings(localSettingsPath)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		if info, err := os.Stat(claudeMDPath); err == nil {
+			mtClaudeMD = info.ModTime()
+			claudeMD, _ = claude.ParseClaudeMD(claudeMDPath)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		mtSubMDs = make(map[string]time.Time)
+		subClaudeMDs = scanSubClaudeMDs(l.ch.Path, claudeMDPath, mtSubMDs)
+		return nil
+	})
+
+	g.Go(func() error {
+		gitInfo = loadGitInfo(l.ch.Path)
+		return nil
+	})
+
+	if l.claudeHome != "" {
+		g.Go(func() error {
+			memoryDir := filepath.Join(l.claudeHome, "projects", l.ch.ID, "memory")
+			memFiles, _ = claude.ScanMemoryFiles(memoryDir)
+			return nil
+		})
+
+		g.Go(func() error {
+			installed, _ := claude.ParseInstalledPlugins(filepath.Join(l.claudeHome, "plugins", "installed_plugins.json"))
+			var enabled map[string]bool
+			globalSettings, _ := claude.ParseSettings(filepath.Join(l.claudeHome, "settings.json"))
+			if globalSettings != nil {
+				enabled = globalSettings.EnabledPlugins
+				globalHooks, _ = claude.ExtractHooks(globalSettings, "global")
+				globalMCP, _ = claude.ExtractMCPServers(globalSettings, "global")
+			}
+			globalPlugins = claude.MergePluginData(installed, enabled)
+			globalSkills, _ = claude.ScanLocalSkills(filepath.Join(l.claudeHome, "skills"))
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, nil, err
+	}
+
+	data.Settings = settings
+	if !mtSettings.IsZero() {
+		mtimes[settingsPath] = mtSettings
+	}
+	data.LocalSettings = localSet
+	if !mtLocal.IsZero() {
+		mtimes[localSettingsPath] = mtLocal
+	}
+	data.ClaudeMD = claudeMD
+	if !mtClaudeMD.IsZero() {
+		mtimes[claudeMDPath] = mtClaudeMD
+	}
+
+	data.SubClaudeMDs = subClaudeMDs
+	for k, v := range mtSubMDs {
+		mtimes[k] = v
+	}
+
+	data.GitInfo = gitInfo
+	data.MemoryFiles = memFiles
+	data.Plugins = globalPlugins
+	data.LocalSkills = globalSkills
+
+	if data.Settings != nil {
+		data.Hooks, _ = claude.ExtractHooks(data.Settings, "project")
+		data.MCPServers, _ = claude.ExtractMCPServers(data.Settings, "project")
+	}
+
+	if l.claudeHome != "" {
+		data.Hooks = append(globalHooks, data.Hooks...)
+		data.MCPServers = append(globalMCP, data.MCPServers...)
+	}
+
+	return data, mtimes, nil
+}
 
 // LoadChannelData parses all data for a channel.
 // claudeHome is ~/.claude (for global data like plugins/skills).
 // Returns parsed data and file mtimes for caching.
 func LoadChannelData(ch *Channel, claudeHome string) (*ChannelData, map[string]time.Time, error) {
-	data := &ChannelData{}
-	mtimes := map[string]time.Time{}
-
-	claudeDir := filepath.Join(ch.Path, ".claude")
-
-	// Settings
-	settingsPath := filepath.Join(claudeDir, "settings.json")
-	if info, err := os.Stat(settingsPath); err == nil {
-		mtimes[settingsPath] = info.ModTime()
-		data.Settings, _ = claude.ParseSettings(settingsPath)
-	}
-
-	// Local Settings
-	localSettingsPath := filepath.Join(claudeDir, "settings.local.json")
-	if info, err := os.Stat(localSettingsPath); err == nil {
-		mtimes[localSettingsPath] = info.ModTime()
-		data.LocalSettings, _ = claude.ParseSettings(localSettingsPath)
-	}
-
-	// CLAUDE.md (root)
-	claudeMDPath := filepath.Join(ch.Path, "CLAUDE.md")
-	if info, err := os.Stat(claudeMDPath); err == nil {
-		mtimes[claudeMDPath] = info.ModTime()
-		data.ClaudeMD, _ = claude.ParseClaudeMD(claudeMDPath)
-	}
-
-	// Sub CLAUDE.md files
-	data.SubClaudeMDs = scanSubClaudeMDs(ch.Path, claudeMDPath, mtimes)
-
-	// Hooks (merge project + global if available)
-	if data.Settings != nil {
-		data.Hooks, _ = claude.ExtractHooks(data.Settings, "project")
-	}
-
-	// MCP Servers from project settings
-	if data.Settings != nil {
-		data.MCPServers, _ = claude.ExtractMCPServers(data.Settings, "project")
-	}
-
-	// Git info
-	data.GitInfo = loadGitInfo(ch.Path)
-
-	// Memory files (from ~/.claude/projects/{id}/memory/)
-	if claudeHome != "" {
-		memoryDir := filepath.Join(claudeHome, "projects", ch.ID, "memory")
-		data.MemoryFiles, _ = claude.ScanMemoryFiles(memoryDir)
-	}
-
-	// Global data (plugins, skills) — loaded once, shared
-	if claudeHome != "" {
-		installed, _ := claude.ParseInstalledPlugins(filepath.Join(claudeHome, "plugins", "installed_plugins.json"))
-		var enabled map[string]bool
-		globalSettings, _ := claude.ParseSettings(filepath.Join(claudeHome, "settings.json"))
-		if globalSettings != nil {
-			enabled = globalSettings.EnabledPlugins
-			// Merge global hooks
-			globalHooks, _ := claude.ExtractHooks(globalSettings, "global")
-			data.Hooks = append(globalHooks, data.Hooks...)
-			// Merge global MCP servers
-			globalMCP, _ := claude.ExtractMCPServers(globalSettings, "global")
-			data.MCPServers = append(globalMCP, data.MCPServers...)
-		}
-		data.Plugins = claude.MergePluginData(installed, enabled)
-		data.LocalSkills, _ = claude.ScanLocalSkills(filepath.Join(claudeHome, "skills"))
-	}
-
-	return data, mtimes, nil
+	loader := &channelLoader{ch: ch, claudeHome: claudeHome}
+	return loader.load()
 }
 
 // ExpectedFiles returns the list of files a channel should track for cache invalidation.

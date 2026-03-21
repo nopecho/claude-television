@@ -1,90 +1,82 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/spf13/viper"
+	"time"
 )
 
 type Config struct {
-	Scan ScanConfig `mapstructure:"scan"`
+	Channels ChannelsConfig `json:"channels"`
+	Editor   string         `json:"editor"`
 }
 
-type ScanConfig struct {
-	Roots  []string `mapstructure:"roots"`
-	Ignore []string `mapstructure:"ignore"`
+type ChannelsConfig struct {
+	AutoSync bool                `json:"auto_sync"`
+	CacheTTL string              `json:"cache_ttl"`
+	Pins     []string            `json:"pins"`
+	Groups   map[string][]string `json:"groups"`
 }
 
-func configDir() string {
+func ConfigDir() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "ctv")
 }
 
 func Load() (*Config, error) {
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(configDir())
-
-	viper.SetDefault("scan.roots", []string{})
-	viper.SetDefault("scan.ignore", []string{"node_modules", ".git", "vendor"})
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("config read: %w", err)
-		}
-	}
-
-	var cfg Config
-	if err := viper.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("config unmarshal: %w", err)
-	}
-	return &cfg, nil
+	return LoadFrom(ConfigDir())
 }
 
-func Save() error {
-	dir := configDir()
+func LoadFrom(dir string) (*Config, error) {
+	path := filepath.Join(dir, "config.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return defaultConfig(), nil
+		}
+		return nil, fmt.Errorf("read config: %w", err)
+	}
+	cfg := defaultConfig()
+	if err := json.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+	return cfg, nil
+}
+
+func Save(cfg *Config) error {
+	return SaveTo(cfg, ConfigDir())
+}
+
+func SaveTo(cfg *Config, dir string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
-	return viper.WriteConfigAs(filepath.Join(dir, "config.yaml"))
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
+	}
+	return os.WriteFile(filepath.Join(dir, "config.json"), data, 0644)
 }
 
-func AddScanRoot(path string) error {
-	roots := viper.GetStringSlice("scan.roots")
-	abs, err := filepath.Abs(path)
+func ParseDuration(s string) time.Duration {
+	if s == "" {
+		return 24 * time.Hour
+	}
+	d, err := time.ParseDuration(s)
 	if err != nil {
-		return fmt.Errorf("resolve path: %w", err)
+		return 24 * time.Hour
 	}
-	for _, r := range roots {
-		if r == abs {
-			return fmt.Errorf("path already registered: %s", abs)
-		}
-	}
-	roots = append(roots, abs)
-	viper.Set("scan.roots", roots)
-	return Save()
+	return d
 }
 
-func RemoveScanRoot(path string) error {
-	roots := viper.GetStringSlice("scan.roots")
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return fmt.Errorf("resolve path: %w", err)
+func defaultConfig() *Config {
+	return &Config{
+		Channels: ChannelsConfig{
+			AutoSync: true,
+			CacheTTL: "24h",
+			Groups:   map[string][]string{},
+		},
 	}
-	filtered := make([]string, 0, len(roots))
-	found := false
-	for _, r := range roots {
-		if r == abs {
-			found = true
-			continue
-		}
-		filtered = append(filtered, r)
-	}
-	if !found {
-		return fmt.Errorf("path not found: %s", abs)
-	}
-	viper.Set("scan.roots", filtered)
-	return Save()
 }

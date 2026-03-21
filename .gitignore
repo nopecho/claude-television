@@ -32,3 +32,6 @@ dist/
 
 # Internal docs (superpowers specs/plans)
 docs/superpowers/
+
+# Worktrees
+.worktrees/

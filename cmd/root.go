@@ -6,9 +6,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/nopecho/claude-television/internal/claude"
+	"github.com/nopecho/claude-television/internal/channel"
 	"github.com/nopecho/claude-television/internal/config"
-	"github.com/nopecho/claude-television/internal/scanner"
 	"github.com/nopecho/claude-television/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -24,51 +23,91 @@ var rootCmd = &cobra.Command{
 		}
 
 		home, _ := os.UserHomeDir()
-		claudeDir := filepath.Join(home, ".claude")
+		claudeHome := filepath.Join(home, ".claude")
+		configDir := config.ConfigDir()
+		regPath := filepath.Join(configDir, "channels.json")
 
-		data := tui.DashboardData{}
+		reg, err := channel.LoadRegistry(regPath)
+		if err != nil {
+			return fmt.Errorf("load registry: %w", err)
+		}
+
+		if cfg.Channels.AutoSync {
+			discovered, err := channel.DiscoverChannels(filepath.Join(claudeHome, "projects"))
+			if err != nil {
+				return fmt.Errorf("discover channels: %w", err)
+			}
+			reg = channel.DiffSync(reg, discovered)
+		}
+
+		if len(reg.Channels) == 0 {
+			fmt.Println("No channels found. Run 'ctv init' or use Claude Code in a project first.")
+			return nil
+		}
+
+		applyConfig(reg, cfg)
+
+		cacheTTL := config.ParseDuration(cfg.Channels.CacheTTL)
+		cache := channel.NewCache(filepath.Join(configDir, "cache"), cacheTTL)
+
 		var wg sync.WaitGroup
-
-		var installed map[string]claude.InstalledPlugin
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			data.Settings, _ = claude.ParseSettings(filepath.Join(claudeDir, "settings.json"))
-			data.LocalSettings, _ = claude.ParseSettings(filepath.Join(claudeDir, "settings.local.json"))
-			data.ClaudeMD, _ = claude.ParseClaudeMD(filepath.Join(claudeDir, "CLAUDE.md"))
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			installed, _ = claude.ParseInstalledPlugins(filepath.Join(claudeDir, "plugins", "installed_plugins.json"))
-			data.LocalSkills, _ = claude.ScanLocalSkills(filepath.Join(claudeDir, "skills"))
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			data.ProjectsMeta, _ = claude.ScanProjectsMeta(filepath.Join(claudeDir, "projects"))
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			data.Projects, _ = scanner.ScanProjects(cfg.Scan.Roots, cfg.Scan.Ignore)
-		}()
-
+		for i := range reg.Channels {
+			wg.Add(1)
+			go func(ch *channel.Channel) {
+				defer wg.Done()
+				expected := channel.ExpectedFiles(ch)
+				if cache.IsValid(ch.ID, expected) {
+					entry, err := cache.Load(ch.ID)
+					if err == nil && entry != nil {
+						ch.Data = &entry.Data
+						return
+					}
+				}
+				data, mtimes, err := channel.LoadChannelData(ch, claudeHome)
+				if err != nil {
+					ch.Status = channel.StatusError
+					return
+				}
+				ch.Data = data
+				ch.Status = determineStatus(ch, data)
+				cache.Save(&channel.CacheEntry{
+					ChannelID:  ch.ID,
+					Data:       *data,
+					FileMtimes: mtimes,
+				})
+			}(&reg.Channels[i])
+		}
 		wg.Wait()
 
-		var enabled map[string]bool
-		if data.Settings != nil {
-			enabled = data.Settings.EnabledPlugins
-			data.Hooks = claude.ExtractHooks(data.Settings, "global")
-		}
-		data.Plugins = claude.MergePluginData(installed, enabled)
+		channel.SaveRegistry(reg, regPath)
 
-		return tui.Run(data)
+		return tui.RunChannels(reg.Channels, cfg)
 	},
+}
+
+func applyConfig(reg *channel.Registry, cfg *config.Config) {
+	pinSet := map[string]bool{}
+	for _, p := range cfg.Channels.Pins {
+		pinSet[p] = true
+	}
+	groupMap := map[string]string{}
+	for group, ids := range cfg.Channels.Groups {
+		for _, id := range ids {
+			groupMap[id] = group
+		}
+	}
+	for i := range reg.Channels {
+		ch := &reg.Channels[i]
+		if pinSet[ch.ID] || pinSet[ch.Name] {
+			ch.Pinned = true
+		}
+		if g, ok := groupMap[ch.ID]; ok {
+			ch.Group = g
+		}
+		if g, ok := groupMap[ch.Name]; ok {
+			ch.Group = g
+		}
+	}
 }
 
 func Execute() {

@@ -1,146 +1,338 @@
 package tui
 
 import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/nopecho/claude-television/internal/claude"
-	"github.com/nopecho/claude-television/internal/scanner"
+	"github.com/nopecho/claude-television/internal/channel"
+	"github.com/nopecho/claude-television/internal/config"
 )
 
-type DashboardData struct {
-	Settings      *claude.Settings
-	LocalSettings *claude.Settings
-	ClaudeMD      *claude.ClaudeMD
-	Plugins       []claude.Plugin
-	LocalSkills   []claude.Skill
-	Hooks         []claude.HookDetail
-	ProjectsMeta  []claude.ProjectMeta
-	Projects      []scanner.Project
-}
+type DetailTab int
 
-type skillItem struct {
-	display   string
-	isPlugin  bool
-	pluginIdx int
-	skillIdx  int
-}
+const (
+	TabSettings DetailTab = iota
+	TabClaudeMD
+	TabHooks
+	TabMCP
+	TabGit
+	TabMemory
+)
+
+var detailTabNames = []string{"Settings", "CLAUDE.md", "Hooks", "MCP", "Git", "Memory"}
 
 type model struct {
-	data       DashboardData
-	activeTab  TabID
-	cursor     int
-	width      int
-	height     int
-	skillCache []skillItem
+	channels      []channel.Channel
+	cfg           *config.Config
+	channelCursor int
+	detailTab     DetailTab
+	detailScroll  int
+	width         int
+	height        int
+	searching     bool
+	searchQuery   string
+	filtered      []int
+	navigateTo    string
 }
 
-func NewModel(data DashboardData) model {
+func newModel(channels []channel.Channel, cfg *config.Config) model {
 	m := model{
-		data:      data,
-		activeTab: TabGlobal,
+		channels: channels,
+		cfg:      cfg,
 	}
-	m.skillCache = m.buildSkillItems()
+	m.sortChannels()
+	m.resetFilter()
 	return m
+}
+
+func (m *model) sortChannels() {
+	pinned := make([]channel.Channel, 0)
+	grouped := make(map[string][]channel.Channel)
+	ungrouped := make([]channel.Channel, 0)
+	var groupOrder []string
+
+	for _, ch := range m.channels {
+		if ch.Pinned {
+			pinned = append(pinned, ch)
+		} else if ch.Group != "" {
+			if _, exists := grouped[ch.Group]; !exists {
+				groupOrder = append(groupOrder, ch.Group)
+			}
+			grouped[ch.Group] = append(grouped[ch.Group], ch)
+		} else {
+			ungrouped = append(ungrouped, ch)
+		}
+	}
+
+	sorted := make([]channel.Channel, 0, len(m.channels))
+	sorted = append(sorted, pinned...)
+	for _, g := range groupOrder {
+		sorted = append(sorted, grouped[g]...)
+	}
+	sorted = append(sorted, ungrouped...)
+	m.channels = sorted
+}
+
+func (m *model) resetFilter() {
+	m.filtered = make([]int, len(m.channels))
+	for i := range m.channels {
+		m.filtered[i] = i
+	}
+}
+
+func (m model) selectedChannel() *channel.Channel {
+	if len(m.filtered) == 0 || m.channelCursor >= len(m.filtered) {
+		return nil
+	}
+	idx := m.filtered[m.channelCursor]
+	return &m.channels[idx]
 }
 
 func (m model) Init() tea.Cmd {
 	return nil
 }
 
+type editorFinishedMsg struct{ err error }
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "tab", "right", "l":
-			m.activeTab = (m.activeTab + 1) % TabID(len(tabNames))
-			m.cursor = 0
-		case "shift+tab", "left", "h":
-			m.activeTab = (m.activeTab - 1 + TabID(len(tabNames))) % TabID(len(tabNames))
-			m.cursor = 0
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-		case "down", "j":
-			max := m.listLen() - 1
-			if m.cursor < max {
-				m.cursor++
-			}
+		if m.searching {
+			return m.updateSearch(msg)
 		}
+		return m.updateNormal(msg)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+	case editorFinishedMsg:
+		// Editor finished, no action needed - TUI resumes automatically
+		return m, nil
 	}
 	return m, nil
 }
+
+func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	action := parseKey(msg)
+	switch action {
+	case keyQuit:
+		return m, tea.Quit
+	case keyUp:
+		if m.channelCursor > 0 {
+			m.channelCursor--
+			m.detailScroll = 0
+		}
+	case keyDown:
+		if m.channelCursor < len(m.filtered)-1 {
+			m.channelCursor++
+			m.detailScroll = 0
+		}
+	case keyTab, keyRight:
+		m.detailTab = (m.detailTab + 1) % DetailTab(len(detailTabNames))
+		m.detailScroll = 0
+	case keyShiftTab, keyLeft:
+		m.detailTab = (m.detailTab - 1 + DetailTab(len(detailTabNames))) % DetailTab(len(detailTabNames))
+		m.detailScroll = 0
+	case keySlash:
+		m.searching = true
+		m.searchQuery = ""
+	case keyCmdEnter:
+		ch := m.selectedChannel()
+		if ch != nil {
+			m.navigateTo = ch.Path
+			return m, tea.Quit
+		}
+	case keyPin:
+		ch := m.selectedChannel()
+		if ch != nil {
+			ch.Pinned = !ch.Pinned
+			m.updatePins()
+		}
+	case keyEdit:
+		ch := m.selectedChannel()
+		if ch != nil {
+			editor := m.cfg.Editor
+			if editor == "" {
+				editor = os.Getenv("EDITOR")
+			}
+			if editor != "" {
+				var target string
+				switch m.detailTab {
+				case TabSettings:
+					target = ch.Path + "/.claude/settings.json"
+				case TabClaudeMD:
+					target = ch.Path + "/CLAUDE.md"
+				default:
+					target = ch.Path + "/.claude/settings.json"
+				}
+				c := exec.Command(editor, target)
+				return m, tea.ExecProcess(c, func(err error) tea.Msg {
+					return editorFinishedMsg{err}
+				})
+			}
+		}
+	case keyScrollDown:
+		m.detailScroll += 10
+	case keyScrollUp:
+		m.detailScroll -= 10
+		if m.detailScroll < 0 {
+			m.detailScroll = 0
+		}
+	}
+	return m, nil
+}
+
+func (m *model) updatePins() {
+	var pins []string
+	for _, ch := range m.channels {
+		if ch.Pinned {
+			pins = append(pins, ch.Name)
+		}
+	}
+	m.cfg.Channels.Pins = pins
+	config.Save(m.cfg)
+}
+
+func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.searching = false
+		m.searchQuery = ""
+		m.resetFilter()
+		m.channelCursor = 0
+	case "enter":
+		m.searching = false
+	case "backspace":
+		if len(m.searchQuery) > 0 {
+			m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
+			m.applySearch()
+		}
+	default:
+		if len(msg.String()) == 1 {
+			m.searchQuery += msg.String()
+			m.applySearch()
+		}
+	}
+	return m, nil
+}
+
+func (m *model) applySearch() {
+	if m.searchQuery == "" {
+		m.resetFilter()
+		return
+	}
+	results := channel.FuzzySearch(m.channels, m.searchQuery)
+	m.filtered = make([]int, 0)
+	for _, r := range results {
+		for i, ch := range m.channels {
+			if ch.ID == r.ID {
+				m.filtered = append(m.filtered, i)
+				break
+			}
+		}
+	}
+	m.channelCursor = 0
+}
+
 
 func (m model) View() string {
 	if m.width == 0 {
 		return "Loading..."
 	}
 
-	header := titleStyle.Render("📺 claude-television") + "\n\n"
-	tabs := renderTabs(m.activeTab) + "\n\n"
+	listWidth := m.width * 22 / 100
+	if listWidth < 20 {
+		listWidth = 20
+	}
+	detailWidth := m.width - listWidth - 4
+	contentHeight := m.height - 5
 
-	listWidth := m.width*35/100 - 4
-	detailWidth := m.width*65/100 - 4
-	contentHeight := m.height - 8
+	header := titleStyle.Render("ctv") + " "
+	if m.searching {
+		header += searchStyle.Render("/ " + m.searchQuery + "█")
+	}
+	header += "\n"
 
-	list := borderStyle.Width(listWidth).Height(contentHeight).Render(m.renderList())
-	detail := borderStyle.Width(detailWidth).Height(contentHeight).Render(m.renderDetail())
+	listContent := m.renderChannelList(contentHeight)
+	list := borderStyle.Width(listWidth).Height(contentHeight).Render(listContent)
+
+	tabBar := m.renderDetailTabs()
+	detailContent := m.renderDetailContent(contentHeight - 2)
+	detail := borderStyle.Width(detailWidth).Height(contentHeight).Render(tabBar + "\n" + detailContent)
 
 	content := lipgloss.JoinHorizontal(lipgloss.Top, list, detail)
-	help := helpStyle.Render("\n  ↑↓/jk navigate  ←→/Tab switch  q quit")
 
-	return header + tabs + content + help
+	help := helpStyle.Render("  j/k move  ←→/Tab switch tab  / search  Ctrl+d/u scroll  Alt+Enter cd  p pin  e edit  q quit")
+
+	return header + content + "\n" + help
 }
 
-func (m model) listLen() int {
-	switch m.activeTab {
-	case TabGlobal:
-		return 3
-	case TabProjects:
-		return len(m.data.Projects)
-	case TabSkills:
-		return len(m.skillCache)
-	case TabHooks:
-		return len(m.data.Hooks)
+func (m model) renderDetailTabs() string {
+	var tabs string
+	for i, name := range detailTabNames {
+		if DetailTab(i) == m.detailTab {
+			tabs += activeTabStyle.Render("[" + name + "]")
+		} else {
+			tabs += inactiveTabStyle.Render(" " + name + " ")
+		}
 	}
-	return 0
+	return tabs
 }
 
-func (m model) renderList() string {
-	switch m.activeTab {
-	case TabGlobal:
-		return m.renderGlobalList()
-	case TabProjects:
-		return m.renderProjectsList()
-	case TabSkills:
-		return m.renderSkillsList()
-	case TabHooks:
-		return m.renderHooksList()
+func RunChannels(channels []channel.Channel, cfg *config.Config) error {
+	m := newModel(channels, cfg)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	result, err := p.Run()
+	if err != nil {
+		return err
 	}
-	return ""
-}
-
-func (m model) renderDetail() string {
-	switch m.activeTab {
-	case TabGlobal:
-		return m.renderGlobalDetail()
-	case TabProjects:
-		return m.renderProjectsDetail()
-	case TabSkills:
-		return m.renderSkillsDetail()
-	case TabHooks:
-		return m.renderHooksDetail()
+	if final, ok := result.(model); ok && final.navigateTo != "" {
+		fmt.Print(final.navigateTo)
 	}
-	return ""
+	return nil
 }
 
-func Run(data DashboardData) error {
-	p := tea.NewProgram(NewModel(data), tea.WithAltScreen())
-	_, err := p.Run()
-	return err
+func statusIconStr(s channel.ChannelStatus) string {
+	switch s {
+	case channel.StatusHealthy:
+		return statusHealthy
+	case channel.StatusWarning:
+		return statusWarning
+	case channel.StatusError:
+		return statusError
+	}
+	return "?"
+}
+
+func boolIcon(b bool) string {
+	if b {
+		return statusHealthy
+	}
+	return statusError
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max-1] + "…"
+}
+
+func kv(key, value string) string {
+	return fmt.Sprintf("  %s  %s", labelStyle.Render(key+":"), valueStyle.Render(value))
+}
+
+func section(title string) string {
+	return "\n" + headerStyle.Render("  "+title) + "\n"
+}
+
+func indent(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, l := range lines {
+		lines[i] = "    " + l
+	}
+	return strings.Join(lines, "\n")
 }

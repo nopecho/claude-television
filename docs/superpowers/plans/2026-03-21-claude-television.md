@@ -6,7 +6,7 @@
 
 **Architecture:** Go CLI(Cobra) → 데이터 수집 레이어(internal/claude, internal/scanner) → TUI 렌더링(Bubble Tea). 설정 파일은 Viper로 관리하고, 데이터 수집은 병렬로 처리한 뒤 TUI 모델에 주입한다.
 
-**Tech Stack:** Go 1.23, Cobra, Bubble Tea, Lip Gloss, Bubbles, Viper, asdf
+**Tech Stack:** Go 1.26, Cobra, Bubble Tea, Lip Gloss, Bubbles, Viper, asdf
 
 **Spec:** `docs/superpowers/specs/2026-03-21-claude-television-design.md`
 
@@ -48,10 +48,12 @@ claude-television/
 │       ├── hooks.go                 # Hooks 탭
 │       ├── tabs.go                  # 탭 네비게이션 컴포넌트
 │       └── styles.go                # lipgloss 스타일 정의
-├── .tool-versions                   # asdf (golang 1.23.0)
+├── .tool-versions                   # asdf (golang 1.26.1)
 ├── .gitignore
 ├── CLAUDE.md
 ├── README.md
+├── LICENSE                          # MIT License
+├── CHANGELOG.md                     # Keep a Changelog 형식
 ├── go.mod
 └── go.sum
 ```
@@ -61,13 +63,13 @@ claude-television/
 ### Task 0: 프로젝트 부트스트랩
 
 **Files:**
-- Create: `.tool-versions`, `.gitignore`, `go.mod`, `main.go`, `CLAUDE.md`, `README.md`
+- Create: `.tool-versions`, `.gitignore`, `go.mod`, `main.go`, `CLAUDE.md`, `README.md`, `LICENSE`, `CHANGELOG.md`
 
 - [ ] **Step 1: asdf 버전 파일 생성**
 
 `.tool-versions`:
 ```
-golang 1.23.0
+golang 1.26.1
 ```
 
 - [ ] **Step 2: Go 모듈 초기화**
@@ -109,6 +111,9 @@ __debug_bin*
 
 # Distribution
 dist/
+
+# Internal docs (superpowers specs/plans)
+docs/superpowers/
 ```
 
 - [ ] **Step 4: CLAUDE.md 생성**
@@ -165,7 +170,7 @@ Claude Code settings are scattered across multiple locations — `settings.json`
 
 ### From Source
 
-Requires Go 1.23+:
+Requires Go 1.26+:
 
 \```bash
 go install github.com/nopecho/claude-television@latest
@@ -174,8 +179,8 @@ go install github.com/nopecho/claude-television@latest
 ### Using asdf
 
 \```bash
-asdf install golang 1.23.0
-asdf local golang 1.23.0
+asdf install golang 1.26.1
+asdf local golang 1.26.1
 go install github.com/nopecho/claude-television@latest
 \```
 
@@ -259,7 +264,54 @@ Contributions are welcome! Please open an issue first to discuss what you would 
 MIT
 \```
 
-- [ ] **Step 6: main.go 스켈레톤 생성**
+- [ ] **Step 6: LICENSE 생성 (MIT)**
+
+`LICENSE`:
+```
+MIT License
+
+Copyright (c) 2026 nopecho
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+- [ ] **Step 7: CHANGELOG.md 생성**
+
+`CHANGELOG.md`:
+```markdown
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/),
+and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added
+- Initial project setup
+- TUI dashboard with 4 tabs: Global, Projects, Skills, Hooks
+- `ctv scan` command for managing project scan paths
+- Read-only view of Claude Code settings, CLAUDE.md, plugins, and hooks
+```
+
+- [ ] **Step 8: main.go 스켈레톤 생성**
 
 `main.go`:
 ```go
@@ -272,7 +324,7 @@ func main() {
 }
 ```
 
-- [ ] **Step 7: 의존성 설치**
+- [ ] **Step 9: 의존성 설치**
 
 Run:
 ```bash
@@ -284,14 +336,14 @@ go get github.com/charmbracelet/bubbles@latest
 go mod tidy
 ```
 
-- [ ] **Step 8: 커밋**
+- [ ] **Step 10: 커밋**
 
 ```bash
 git add -A
 git commit -m "chore: 프로젝트 초기 셋업
 
 - Go 모듈 초기화, 의존성 설치
-- .tool-versions, .gitignore, CLAUDE.md, README.md 작성
+- .tool-versions, .gitignore, CLAUDE.md, README.md, LICENSE, CHANGELOG.md 작성
 - main.go 엔트리포인트 생성"
 ```
 

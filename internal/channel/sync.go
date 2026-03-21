@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"github.com/nopecho/claude-television/internal/util"
 )
 
 func DiscoverChannels(projectsDir string) ([]Channel, error) {
@@ -22,7 +23,7 @@ func DiscoverChannels(projectsDir string) ([]Channel, error) {
 			continue
 		}
 		id := e.Name()
-		decoded := decodeProjectPath(id)
+		decoded := util.DecodeProjectPath(id)
 		name := filepath.Base(decoded)
 		status := StatusHealthy
 		if _, err := os.Stat(decoded); err != nil {
@@ -52,35 +53,3 @@ func DiffSync(existing *Registry, discovered []Channel) *Registry {
 	return result
 }
 
-func decodeProjectPath(encoded string) string {
-	if !strings.HasPrefix(encoded, "-") {
-		return encoded
-	}
-	parts := strings.Split(strings.TrimPrefix(encoded, "-"), "-")
-	return bestEffortDecode(parts)
-}
-
-func bestEffortDecode(parts []string) string {
-	if len(parts) == 0 {
-		return "/"
-	}
-	current := "/"
-	i := 0
-	for i < len(parts) {
-		found := false
-		for j := len(parts); j > i; j-- {
-			candidate := current + strings.Join(parts[i:j], "-")
-			if _, err := os.Stat(candidate); err == nil {
-				current = candidate + "/"
-				i = j
-				found = true
-				break
-			}
-		}
-		if !found {
-			current += parts[i] + "/"
-			i++
-		}
-	}
-	return strings.TrimSuffix(current, "/")
-}

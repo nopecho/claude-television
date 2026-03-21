@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/nopecho/claude-television/internal/util"
 )
 
 type ProjectMeta struct {
@@ -29,7 +30,7 @@ func ScanProjectsMeta(projectsDir string) ([]ProjectMeta, error) {
 		}
 		name := e.Name()
 		dirPath := filepath.Join(projectsDir, name)
-		meta := ProjectMeta{EncodedName: name, DecodedPath: decodeProjectPath(name)}
+		meta := ProjectMeta{EncodedName: name, DecodedPath: util.DecodeProjectPath(name)}
 		if _, err := os.Stat(filepath.Join(dirPath, "memory")); err == nil {
 			meta.HasMemory = true
 		}
@@ -43,42 +44,4 @@ func ScanProjectsMeta(projectsDir string) ([]ProjectMeta, error) {
 		result = append(result, meta)
 	}
 	return result, nil
-}
-
-func decodeProjectPath(encoded string) string {
-	if !strings.HasPrefix(encoded, "-") {
-		return encoded
-	}
-	parts := strings.Split(strings.TrimPrefix(encoded, "-"), "-")
-	return bestEffortDecode(parts)
-}
-
-func bestEffortDecode(parts []string) string {
-	if len(parts) == 0 {
-		return "/"
-	}
-	current := "/"
-	i := 0
-	for i < len(parts) {
-		found := false
-		for j := len(parts); j > i; j-- {
-			candidate := current + strings.Join(parts[i:j], "-")
-			if pathExists(candidate) {
-				current = candidate + "/"
-				i = j
-				found = true
-				break
-			}
-		}
-		if !found {
-			current += parts[i] + "/"
-			i++
-		}
-	}
-	return strings.TrimSuffix(current, "/")
-}
-
-func pathExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }

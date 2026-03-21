@@ -160,8 +160,11 @@ func ExpectedFiles(ch *Channel) []string {
 	}
 }
 
+const maxSubClaudeMDDepth = 4
+
 func scanSubClaudeMDs(projectDir, rootClaudeMD string, mtimes map[string]time.Time) []claude.ClaudeMD {
 	var result []claude.ClaudeMD
+	baseDepth := strings.Count(projectDir, string(filepath.Separator))
 	skipDirs := map[string]bool{
 		".git": true, "node_modules": true, "vendor": true, ".worktrees": true,
 		"dist": true, "build": true, ".next": true, "target": true,
@@ -172,6 +175,10 @@ func scanSubClaudeMDs(projectDir, rootClaudeMD string, mtimes map[string]time.Ti
 			return nil
 		}
 		if d.IsDir() {
+			depth := strings.Count(path, string(filepath.Separator)) - baseDepth
+			if depth > maxSubClaudeMDDepth {
+				return filepath.SkipDir
+			}
 			if skipDirs[d.Name()] {
 				return filepath.SkipDir
 			}

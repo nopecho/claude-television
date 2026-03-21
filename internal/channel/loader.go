@@ -29,20 +29,16 @@ func (l *channelLoader) load() (*ChannelData, map[string]time.Time, error) {
 	var g errgroup.Group
 
 	var (
-		settings      *claude.Settings
-		mtSettings    time.Time
-		localSet      *claude.Settings
-		mtLocal       time.Time
-		claudeMD      *claude.ClaudeMD
-		mtClaudeMD    time.Time
-		subClaudeMDs  []claude.ClaudeMD
-		mtSubMDs      map[string]time.Time
-		gitInfo       *GitInfo
-		memFiles      []claude.MemoryFile
-		globalPlugins []claude.Plugin
-		globalSkills  []claude.Skill
-		globalHooks   []claude.HookDetail
-		globalMCP     []claude.MCPServer
+		settings     *claude.Settings
+		mtSettings   time.Time
+		localSet     *claude.Settings
+		mtLocal      time.Time
+		claudeMD     *claude.ClaudeMD
+		mtClaudeMD   time.Time
+		subClaudeMDs []claude.ClaudeMD
+		mtSubMDs     map[string]time.Time
+		gitInfo      *GitInfo
+		memFiles     []claude.MemoryFile
 	)
 
 	g.Go(func() error {
@@ -86,20 +82,6 @@ func (l *channelLoader) load() (*ChannelData, map[string]time.Time, error) {
 			memFiles, _ = claude.ScanMemoryFiles(memoryDir)
 			return nil
 		})
-
-		g.Go(func() error {
-			installed, _ := claude.ParseInstalledPlugins(filepath.Join(l.claudeHome, "plugins", "installed_plugins.json"))
-			var enabled map[string]bool
-			globalSettings, _ := claude.ParseSettings(filepath.Join(l.claudeHome, "settings.json"))
-			if globalSettings != nil {
-				enabled = globalSettings.EnabledPlugins
-				globalHooks, _ = claude.ExtractHooks(globalSettings, "global")
-				globalMCP, _ = claude.ExtractMCPServers(globalSettings, "global")
-			}
-			globalPlugins = claude.MergePluginData(installed, enabled)
-			globalSkills, _ = claude.ScanLocalSkills(filepath.Join(l.claudeHome, "skills"))
-			return nil
-		})
 	}
 
 	if err := g.Wait(); err != nil {
@@ -126,17 +108,10 @@ func (l *channelLoader) load() (*ChannelData, map[string]time.Time, error) {
 
 	data.GitInfo = gitInfo
 	data.MemoryFiles = memFiles
-	data.Plugins = globalPlugins
-	data.LocalSkills = globalSkills
 
 	if data.Settings != nil {
 		data.Hooks, _ = claude.ExtractHooks(data.Settings, "project")
 		data.MCPServers, _ = claude.ExtractMCPServers(data.Settings, "project")
-	}
-
-	if l.claudeHome != "" {
-		data.Hooks = append(globalHooks, data.Hooks...)
-		data.MCPServers = append(globalMCP, data.MCPServers...)
 	}
 
 	data.HealthIssues = claude.CheckHealth(&claude.HealthInput{

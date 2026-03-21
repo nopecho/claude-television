@@ -20,6 +20,13 @@ Claude Code 설정은 여러 위치에 분산되어 있다:
 
 현재는 이 파일들을 직접 열어 확인해야 하며, 어떤 프로젝트에 어떤 설정이 적용되어 있는지 한눈에 볼 방법이 없다.
 
+### `~/.claude/projects/` 경로 인코딩
+
+`~/.claude/projects/` 하위 디렉토리는 프로젝트의 절대 경로를 인코딩한 이름을 사용한다:
+- 경로의 `/`를 `-`로 치환하고 선두에 `-`가 붙는다
+- 예: `/Users/nopecho/projects/api-server` → `-Users-nopecho-projects-api-server`
+- 디코딩: 선두 `-` 제거 후 `-`를 `/`로 치환하되, 원래 경로에 `-`가 포함된 경우를 고려하여 실제 파일시스템 존재 여부로 검증한다
+
 ## 커맨드
 
 ```
@@ -76,21 +83,25 @@ ctv version             # 버전 출력
 #### Skills 탭
 설치된 플러그인/스킬의 목록과 상태.
 
-- `~/.claude/settings.json`의 `enabledPlugins` 기반
-- `~/.claude/plugins/cache/` 에서 실제 설치 정보 확인
-- 플러그인별: 이름, 마켓플레이스, 버전, 활성화 상태
+데이터 소스:
+- `~/.claude/plugins/installed_plugins.json` — 플러그인 메타데이터 (버전, 설치 경로, 타임스탬프, gitCommitSha 등)
+- `~/.claude/settings.json`의 `enabledPlugins` — 활성화/비활성화 상태 (`name@marketplace: boolean`)
+- `~/.claude/plugins/cache/` — 캐시된 플러그인 파일 (포함된 스킬 목록 확인)
+- `~/.claude/skills/` — 로컬 스킬 디렉토리 (플러그인과 별도로 존재하는 커스텀 스킬)
 
-목록 패널: 플러그인 목록 + 활성화 상태.
-상세 패널: 선택한 플러그인의 버전, 마켓플레이스, 포함된 스킬 목록.
+두 소스를 플러그인 키(`name@marketplace`)로 조인하여 표시한다.
+
+목록 패널: 플러그인/스킬 목록 + 활성화 상태 + 로컬/마켓플레이스 구분.
+상세 패널: 선택한 플러그인의 버전, 마켓플레이스, 설치 경로, 포함된 스킬 목록.
 
 #### Hooks 탭
-등록된 hooks의 전체 목록.
+등록된 hooks 목록.
 
-- 글로벌 hooks (`~/.claude/settings.json` 내 hooks 설정)
-- 프로젝트별 hooks (각 프로젝트 `.claude/settings.json` 내 hooks)
+- MVP: 글로벌 hooks만 표시 (`~/.claude/settings.json` 내 hooks 설정)
 - hook별: 이벤트 타입, matcher, command
+- 향후: 프로젝트별 hooks 개별 표시 추가 예정
 
-목록 패널: hook 목록 (글로벌/프로젝트 구분).
+목록 패널: hook 목록.
 상세 패널: 선택한 hook의 이벤트, matcher, command 상세.
 
 ## 설정 파일
@@ -110,6 +121,8 @@ scan:
 
 `ctv scan <path>` 커맨드로 이 파일을 관리한다.
 
+스캔 깊이: 등록된 root 경로에서 1단계 하위 디렉토리만 탐색한다 (즉, `~/projects/` 등록 시 `~/projects/foo/`, `~/projects/bar/`를 프로젝트로 인식). `~/.config/ctv/config.yaml`에 없는 경우 기본 디렉토리 자동 생성한다.
+
 ## 프로젝트 구조
 
 ```
@@ -124,7 +137,8 @@ claude-television/
 │   ├── claude/
 │   │   ├── settings.go  # settings.json 파싱
 │   │   ├── claudemd.go  # CLAUDE.md 파싱 (섹션 추출)
-│   │   ├── plugins.go   # plugins/cache 스캔, enabledPlugins 매핑
+│   │   ├── plugins.go   # installed_plugins.json + enabledPlugins + cache 스캔
+│   │   ├── skills.go    # ~/.claude/skills/ 로컬 스킬 스캔
 │   │   ├── hooks.go     # hooks 설정 파싱
 │   │   └── projects.go  # ~/.claude/projects/ 스캔
 │   ├── scanner/
@@ -162,7 +176,7 @@ claude-television/
 3. 병렬로 데이터 수집:
    a. ~/.claude/settings.json, settings.local.json 파싱
    b. ~/.claude/CLAUDE.md 파싱
-   c. ~/.claude/plugins/ 스캔
+   c. ~/.claude/plugins/ + ~/.claude/skills/ 데이터 수집 (installed_plugins.json, enabledPlugins, cache, skills/)
    d. ~/.claude/projects/ 스캔
    e. 등록된 경로에서 프로젝트 디렉토리 스캔
 4. 수집된 데이터로 TUI 모델 초기화
@@ -182,11 +196,11 @@ claude-television/
 
 ## 성공 기준
 
-1. `ctv` 실행 시 1초 이내에 대시보드가 표시된다
+1. `ctv` 실행 시 1초 이내에 대시보드가 표시된다 (로컬 파일시스템, 프로젝트 100개 이하 기준)
 2. 글로벌 settings, CLAUDE.md 내용을 정확히 파싱하여 보여준다
 3. 스캔 경로의 프로젝트를 탐지하고 Claude 설정 유무를 표시한다
 4. 설치된 플러그인/스킬 목록과 활성화 상태를 보여준다
-5. hooks 설정을 글로벌/프로젝트 구분하여 보여준다
+5. hooks 설정을 보여준다 (MVP: 글로벌만)
 6. 탭 전환과 목록 탐색이 부드럽게 동작한다
 
 ## MVP 범위

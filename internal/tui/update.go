@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nopecho/claude-television/internal/channel"
@@ -70,15 +71,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				editor = os.Getenv("EDITOR")
 			}
 			if editor != "" {
-				var target string
-				switch m.detailTab {
-				case TabSettings:
-					target = ch.Path + "/.claude/settings.json"
-				case TabClaudeMD:
-					target = ch.Path + "/CLAUDE.md"
-				default:
-					target = ch.Path + "/.claude/settings.json"
-				}
+				target := editTargetForTab(ch, m.detailTab)
 				c := exec.Command(editor, target)
 				return m, tea.ExecProcess(c, func(err error) tea.Msg {
 					return editorFinishedMsg{err}
@@ -155,4 +148,13 @@ func (m *model) applySearch() {
 	}
 	m.channelCursor = 0
 	m.detailScroll = 0
+}
+
+func editTargetForTab(ch *channel.Channel, tab DetailTab) string {
+	switch tab {
+	case TabClaudeMD:
+		return filepath.Join(ch.Path, "CLAUDE.md")
+	default:
+		return filepath.Join(ch.Path, ".claude", "settings.json")
+	}
 }

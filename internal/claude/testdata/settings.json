@@ -1,0 +1,15 @@
+{
+  "model": "opus",
+  "language": "korean",
+  "env": {
+    "CLAUDE_CODE_SHELL": "zsh"
+  },
+  "permissions": {
+    "allow": ["Bash(go:*)", "Read"],
+    "deny": ["Bash(rm -rf *)"]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "obsidian@obsidian-skills": false
+  }
+}

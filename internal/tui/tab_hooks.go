@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/nopecho/claude-television/internal/channel"
+	"github.com/nopecho/claude-television/internal/claude"
 )
 
 func (m model) renderHooksTab(ch *channel.Channel) string {
@@ -16,21 +17,12 @@ func (m model) renderHooksTab(ch *channel.Channel) string {
 		return b.String()
 	}
 
-	groups := map[string][]int{}
-	var order []string
-	for i, h := range ch.Data.Hooks {
-		if _, exists := groups[h.Event]; !exists {
-			order = append(order, h.Event)
-		}
-		groups[h.Event] = append(groups[h.Event], i)
-	}
-
 	b.WriteString(section(fmt.Sprintf("Hooks (%d)", len(ch.Data.Hooks))))
 
+	order, groups := orderedGroup(ch.Data.Hooks, func(h claude.HookDetail) string { return h.Event })
 	for _, event := range order {
 		b.WriteString(fmt.Sprintf("\n    %s\n", headerStyle.Render(event)))
-		for _, idx := range groups[event] {
-			h := ch.Data.Hooks[idx]
+		for _, h := range groups[event] {
 			source := labelStyle.Render(fmt.Sprintf("[%s]", h.Source))
 			b.WriteString(fmt.Sprintf("      %s %s\n", source, h.Type))
 			if h.Matcher != "" {

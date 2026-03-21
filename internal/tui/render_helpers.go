@@ -52,3 +52,17 @@ func indent(s string) string {
 func bullet(s string) string {
 	return "    • " + s
 }
+
+// orderedGroup groups items by a key function, preserving first-seen order.
+func orderedGroup[T any](items []T, keyFn func(T) string) ([]string, map[string][]T) {
+	groups := map[string][]T{}
+	var order []string
+	for _, item := range items {
+		key := keyFn(item)
+		if _, exists := groups[key]; !exists {
+			order = append(order, key)
+		}
+		groups[key] = append(groups[key], item)
+	}
+	return order, groups
+}

@@ -14,52 +14,52 @@ var (
 	tabBgColor   = lipgloss.Color("236")
 
 	titleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(accentColor).
-		Padding(0, 1)
+			Bold(true).
+			Foreground(accentColor).
+			Padding(0, 1)
 
 	headerStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(accentColor)
+			Bold(true).
+			Foreground(accentColor)
 
 	borderStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(borderColor)
 
 	helpStyle = lipgloss.NewStyle().
-		Foreground(dimColor)
+			Foreground(dimColor)
 
 	channelItemStyle = lipgloss.NewStyle().
-		Padding(0, 1)
+				Padding(0, 1)
 
 	channelSelectedStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(accentColor).
-		Padding(0, 1)
+				Bold(true).
+				Foreground(accentColor).
+				Padding(0, 1)
 
 	groupHeaderStyle = lipgloss.NewStyle().
-		Foreground(groupColor).
-		Bold(true).
-		Padding(0, 1)
+				Foreground(groupColor).
+				Bold(true).
+				Padding(0, 1)
 
 	activeTabStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(accentColor).
-		Background(tabBgColor).
-		Padding(0, 1)
+			Bold(true).
+			Foreground(accentColor).
+			Background(tabBgColor).
+			Padding(0, 1)
 
 	inactiveTabStyle = lipgloss.NewStyle().
-		Foreground(dimColor).
-		Padding(0, 1)
+				Foreground(dimColor).
+				Padding(0, 1)
 
 	detailStyle = lipgloss.NewStyle().
-		Padding(0, 1)
+			Padding(0, 1)
 
 	labelStyle = lipgloss.NewStyle().
-		Foreground(dimColor)
+			Foreground(dimColor)
 
 	valueStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("255"))
+			Foreground(lipgloss.Color("255"))
 
 	statusHealthy = lipgloss.NewStyle().Foreground(healthyColor).Render("●")
 	statusWarning = lipgloss.NewStyle().Foreground(warningColor).Render("○")
@@ -67,6 +67,6 @@ var (
 	pinIcon       = lipgloss.NewStyle().Foreground(pinColor).Render("★")
 
 	searchStyle = lipgloss.NewStyle().
-		Foreground(accentColor).
-		Bold(true)
+			Foreground(accentColor).
+			Bold(true)
 )

@@ -135,12 +135,13 @@ func (m model) renderDetailTabs() string {
 	var underlines []string
 
 	for i, name := range detailTabNames {
+		tabWidth := len(name) + 2 // +2 for Padding(0, 1) on both sides
 		if DetailTab(i) == m.detailTab {
 			tabs = append(tabs, activeTabStyle.Render(name))
-			underlines = append(underlines, tabUnderlineStyle.Render(strings.Repeat("━", len(name))))
+			underlines = append(underlines, " "+tabUnderlineStyle.Render(strings.Repeat("━", len(name)))+" ")
 		} else {
 			tabs = append(tabs, inactiveTabStyle.Render(name))
-			underlines = append(underlines, strings.Repeat(" ", len(name)+2))
+			underlines = append(underlines, strings.Repeat(" ", tabWidth))
 		}
 	}
 

@@ -42,7 +42,14 @@ func (m *model) syncViewportSize() {
 		contentHeight = 1
 	}
 	m.viewport.Width = detailWidth - 2
-	m.viewport.Height = contentHeight
+	if m.viewport.Width < 1 {
+		m.viewport.Width = 1
+	}
+	tabBarHeight := 2
+	m.viewport.Height = contentHeight - tabBarHeight
+	if m.viewport.Height < 1 {
+		m.viewport.Height = 1
+	}
 }
 
 func (m model) listWidth() int {
@@ -92,14 +99,21 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case keyLeft:
-		m.detailTab = (m.detailTab - 1 + DetailTab(len(detailTabNames))) % DetailTab(len(detailTabNames))
-		m.syncDetailContent()
+		if m.focus == detailPanel {
+			m.detailTab = (m.detailTab - 1 + DetailTab(len(detailTabNames))) % DetailTab(len(detailTabNames))
+			m.syncDetailContent()
+		}
 
 	case keyRight:
-		m.detailTab = (m.detailTab + 1) % DetailTab(len(detailTabNames))
-		m.syncDetailContent()
+		if m.focus == listPanel {
+			m.focus = detailPanel
+		} else {
+			m.detailTab = (m.detailTab + 1) % DetailTab(len(detailTabNames))
+			m.syncDetailContent()
+		}
 
 	case keySlash:
+		m.prevCursor = m.channelCursor
 		m.searching = true
 		m.searchInput.Placeholder = "Search channels..."
 		m.searchInput.SetValue("")
@@ -107,6 +121,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, textinput.Blink
 
 	case keyContentSearch:
+		m.prevCursor = m.channelCursor
 		m.contentSearching = true
 		m.searchInput.Placeholder = "Search content..."
 		m.searchInput.SetValue("")
@@ -189,7 +204,10 @@ func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.searchInput.Blur()
 		m.searchInput.SetValue("")
 		m.resetFilter()
-		m.channelCursor = 0
+		m.channelCursor = m.prevCursor
+		if m.channelCursor >= len(m.filtered) {
+			m.channelCursor = 0
+		}
 		m.syncDetailContent()
 		return m, nil
 	case "enter":

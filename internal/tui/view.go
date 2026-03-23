@@ -15,7 +15,13 @@ func (m model) View() string {
 
 	listWidth := m.listWidth()
 	detailWidth := m.width - listWidth - 4
+	if detailWidth < 10 {
+		detailWidth = 10
+	}
 	contentHeight := m.height - 7 // header + tab bar + help + borders
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
 
 	header := titleStyle.Render("ctv")
 	if m.searching || m.contentSearching || m.grouping {
@@ -129,12 +135,13 @@ func (m model) renderDetailTabs() string {
 	var underlines []string
 
 	for i, name := range detailTabNames {
+		tabWidth := len(name) + 2 // +2 for Padding(0, 1) on both sides
 		if DetailTab(i) == m.detailTab {
 			tabs = append(tabs, activeTabStyle.Render(name))
-			underlines = append(underlines, tabUnderlineStyle.Render(strings.Repeat("━", len(name))))
+			underlines = append(underlines, " "+tabUnderlineStyle.Render(strings.Repeat("━", len(name)))+" ")
 		} else {
 			tabs = append(tabs, inactiveTabStyle.Render(name))
-			underlines = append(underlines, strings.Repeat(" ", len(name)+2))
+			underlines = append(underlines, strings.Repeat(" ", tabWidth))
 		}
 	}
 
@@ -150,11 +157,20 @@ func (m model) renderHelpBar() string {
 			helpEntry("Enter", "confirm"),
 			helpEntry("Esc", "cancel"),
 		}
+	} else if m.focus == detailPanel {
+		entries = []string{
+			helpEntry("j/k", "scroll"),
+			helpEntry("h/l", "tabs"),
+			helpEntry("Tab", "list"),
+			helpEntry("/", "search"),
+			helpEntry("?", "content"),
+			helpEntry("e", "edit"),
+			helpEntry("q", "quit"),
+		}
 	} else {
 		entries = []string{
 			helpEntry("j/k", "move"),
-			helpEntry("←→", "tabs"),
-			helpEntry("Tab", "focus"),
+			helpEntry("l/Tab", "detail"),
 			helpEntry("/", "search"),
 			helpEntry("?", "content"),
 			helpEntry("g", "group"),
@@ -167,8 +183,11 @@ func (m model) renderHelpBar() string {
 	return "  " + strings.Join(entries, "  ")
 }
 
+// borderCharWidth is the byte length of the "─" UTF-8 character used in borders.
+var borderCharWidth = len("─")
+
 // injectBorderTitle places a styled title string into the top border line.
-// Works by replacing a segment of the first line after the border corner.
+// Uses lipgloss.Width for ANSI-safe visual width calculation.
 func injectBorderTitle(box, title string) string {
 	if title == "" {
 		return box
@@ -177,19 +196,24 @@ func injectBorderTitle(box, title string) string {
 	if len(lines) == 0 {
 		return box
 	}
-	// Replace the top border line: ╭──...──╮ → ╭─ Title ─...──╮
 	first := lines[0]
 	cornerEnd := strings.Index(first, "─")
 	if cornerEnd < 0 {
 		return box
 	}
-	// Insert title after first border char
-	insertAt := cornerEnd + len("─")
-	lines[0] = first[:insertAt] + title + first[insertAt+len(title):]
+	insertAt := cornerEnd + borderCharWidth
+	// Calculate how many border bytes to replace based on visual width
+	visualWidth := lipgloss.Width(title)
+	replaceBytes := visualWidth * borderCharWidth
+	if insertAt+replaceBytes > len(first) {
+		return box
+	}
+	lines[0] = first[:insertAt] + title + first[insertAt+replaceBytes:]
 	return strings.Join(lines, "\n")
 }
 
 // injectBorderFooter places a styled string into the bottom border line.
+// Uses lipgloss.Width for ANSI-safe visual width calculation.
 func injectBorderFooter(box, footer string) string {
 	if footer == "" {
 		return box
@@ -199,14 +223,16 @@ func injectBorderFooter(box, footer string) string {
 		return box
 	}
 	last := lines[len(lines)-1]
-	// Find a position near the right side to inject the footer
 	cornerEnd := strings.Index(last, "─")
 	if cornerEnd < 0 {
 		return box
 	}
-	insertAt := cornerEnd + len("─")
-	if insertAt+len(footer) < len(last) {
-		lines[len(lines)-1] = last[:insertAt] + footer + last[insertAt+len(footer):]
+	insertAt := cornerEnd + borderCharWidth
+	visualWidth := lipgloss.Width(footer)
+	replaceBytes := visualWidth * borderCharWidth
+	if insertAt+replaceBytes > len(last) {
+		return box
 	}
+	lines[len(lines)-1] = last[:insertAt] + footer + last[insertAt+replaceBytes:]
 	return strings.Join(lines, "\n")
 }

@@ -46,6 +46,7 @@ type model struct {
 	contentSearching bool
 	grouping         bool
 	filtered         []int
+	prevCursor       int
 	navigateTo       string
 }
 

@@ -113,6 +113,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case keySlash:
+		m.prevCursor = m.channelCursor
 		m.searching = true
 		m.searchInput.Placeholder = "Search channels..."
 		m.searchInput.SetValue("")
@@ -120,6 +121,7 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, textinput.Blink
 
 	case keyContentSearch:
+		m.prevCursor = m.channelCursor
 		m.contentSearching = true
 		m.searchInput.Placeholder = "Search content..."
 		m.searchInput.SetValue("")
@@ -202,7 +204,10 @@ func (m model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.searchInput.Blur()
 		m.searchInput.SetValue("")
 		m.resetFilter()
-		m.channelCursor = 0
+		m.channelCursor = m.prevCursor
+		if m.channelCursor >= len(m.filtered) {
+			m.channelCursor = 0
+		}
 		m.syncDetailContent()
 		return m, nil
 	case "enter":

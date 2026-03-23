@@ -15,7 +15,13 @@ func (m model) View() string {
 
 	listWidth := m.listWidth()
 	detailWidth := m.width - listWidth - 4
+	if detailWidth < 10 {
+		detailWidth = 10
+	}
 	contentHeight := m.height - 7 // header + tab bar + help + borders
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
 
 	header := titleStyle.Render("ctv")
 	if m.searching || m.contentSearching || m.grouping {

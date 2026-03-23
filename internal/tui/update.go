@@ -42,7 +42,14 @@ func (m *model) syncViewportSize() {
 		contentHeight = 1
 	}
 	m.viewport.Width = detailWidth - 2
-	m.viewport.Height = contentHeight
+	if m.viewport.Width < 1 {
+		m.viewport.Width = 1
+	}
+	tabBarHeight := 2
+	m.viewport.Height = contentHeight - tabBarHeight
+	if m.viewport.Height < 1 {
+		m.viewport.Height = 1
+	}
 }
 
 func (m model) listWidth() int {

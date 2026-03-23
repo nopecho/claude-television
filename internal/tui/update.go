@@ -99,12 +99,18 @@ func (m model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case keyLeft:
-		m.detailTab = (m.detailTab - 1 + DetailTab(len(detailTabNames))) % DetailTab(len(detailTabNames))
-		m.syncDetailContent()
+		if m.focus == detailPanel {
+			m.detailTab = (m.detailTab - 1 + DetailTab(len(detailTabNames))) % DetailTab(len(detailTabNames))
+			m.syncDetailContent()
+		}
 
 	case keyRight:
-		m.detailTab = (m.detailTab + 1) % DetailTab(len(detailTabNames))
-		m.syncDetailContent()
+		if m.focus == listPanel {
+			m.focus = detailPanel
+		} else {
+			m.detailTab = (m.detailTab + 1) % DetailTab(len(detailTabNames))
+			m.syncDetailContent()
+		}
 
 	case keySlash:
 		m.searching = true

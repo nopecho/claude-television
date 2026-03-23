@@ -173,8 +173,11 @@ func (m model) renderHelpBar() string {
 	return "  " + strings.Join(entries, "  ")
 }
 
+// borderCharWidth is the byte length of the "─" UTF-8 character used in borders.
+var borderCharWidth = len("─")
+
 // injectBorderTitle places a styled title string into the top border line.
-// Works by replacing a segment of the first line after the border corner.
+// Uses lipgloss.Width for ANSI-safe visual width calculation.
 func injectBorderTitle(box, title string) string {
 	if title == "" {
 		return box
@@ -183,19 +186,24 @@ func injectBorderTitle(box, title string) string {
 	if len(lines) == 0 {
 		return box
 	}
-	// Replace the top border line: ╭──...──╮ → ╭─ Title ─...──╮
 	first := lines[0]
 	cornerEnd := strings.Index(first, "─")
 	if cornerEnd < 0 {
 		return box
 	}
-	// Insert title after first border char
-	insertAt := cornerEnd + len("─")
-	lines[0] = first[:insertAt] + title + first[insertAt+len(title):]
+	insertAt := cornerEnd + borderCharWidth
+	// Calculate how many border bytes to replace based on visual width
+	visualWidth := lipgloss.Width(title)
+	replaceBytes := visualWidth * borderCharWidth
+	if insertAt+replaceBytes > len(first) {
+		return box
+	}
+	lines[0] = first[:insertAt] + title + first[insertAt+replaceBytes:]
 	return strings.Join(lines, "\n")
 }
 
 // injectBorderFooter places a styled string into the bottom border line.
+// Uses lipgloss.Width for ANSI-safe visual width calculation.
 func injectBorderFooter(box, footer string) string {
 	if footer == "" {
 		return box
@@ -205,14 +213,16 @@ func injectBorderFooter(box, footer string) string {
 		return box
 	}
 	last := lines[len(lines)-1]
-	// Find a position near the right side to inject the footer
 	cornerEnd := strings.Index(last, "─")
 	if cornerEnd < 0 {
 		return box
 	}
-	insertAt := cornerEnd + len("─")
-	if insertAt+len(footer) < len(last) {
-		lines[len(lines)-1] = last[:insertAt] + footer + last[insertAt+len(footer):]
+	insertAt := cornerEnd + borderCharWidth
+	visualWidth := lipgloss.Width(footer)
+	replaceBytes := visualWidth * borderCharWidth
+	if insertAt+replaceBytes > len(last) {
+		return box
 	}
+	lines[len(lines)-1] = last[:insertAt] + footer + last[insertAt+replaceBytes:]
 	return strings.Join(lines, "\n")
 }

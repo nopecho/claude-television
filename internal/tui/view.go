@@ -157,11 +157,20 @@ func (m model) renderHelpBar() string {
 			helpEntry("Enter", "confirm"),
 			helpEntry("Esc", "cancel"),
 		}
+	} else if m.focus == detailPanel {
+		entries = []string{
+			helpEntry("j/k", "scroll"),
+			helpEntry("h/l", "tabs"),
+			helpEntry("Tab", "list"),
+			helpEntry("/", "search"),
+			helpEntry("?", "content"),
+			helpEntry("e", "edit"),
+			helpEntry("q", "quit"),
+		}
 	} else {
 		entries = []string{
 			helpEntry("j/k", "move"),
-			helpEntry("←→", "tabs"),
-			helpEntry("Tab", "focus"),
+			helpEntry("l/Tab", "detail"),
 			helpEntry("/", "search"),
 			helpEntry("?", "content"),
 			helpEntry("g", "group"),

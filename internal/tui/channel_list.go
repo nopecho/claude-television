@@ -48,13 +48,19 @@ func (m model) renderChannelList(height int) string {
 		}
 	}
 
-	visibleHeight := height - 1
+	visibleHeight := height
 	if visibleHeight < 1 {
 		visibleHeight = 1
 	}
-	startIdx := 0
-	if cursorDisplayIdx >= visibleHeight {
-		startIdx = cursorDisplayIdx - visibleHeight + 1
+	startIdx := cursorDisplayIdx - visibleHeight/2
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if startIdx+visibleHeight > len(items) {
+		startIdx = len(items) - visibleHeight
+		if startIdx < 0 {
+			startIdx = 0
+		}
 	}
 
 	channelIdx := 0

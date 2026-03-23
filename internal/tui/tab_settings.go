@@ -15,17 +15,17 @@ func (m model) renderSettingsTab(ch *channel.Channel) string {
 	b.WriteString(kv("path", ch.Path, 8) + "\n")
 	b.WriteString(kv("status", statusIconStr(ch.Status)+" "+string(ch.Status), 8) + "\n")
 
-	if ch.Data.Settings != nil {
+	if ch.Data != nil && ch.Data.Settings != nil {
 		b.WriteString(renderSettingsSection(ch.Data.Settings, "Project Settings"))
 	}
-	if ch.Data.LocalSettings != nil {
+	if ch.Data != nil && ch.Data.LocalSettings != nil {
 		b.WriteString(renderSettingsSection(ch.Data.LocalSettings, "Local Settings (override)"))
 	}
-	if ch.Data.Settings == nil && ch.Data.LocalSettings == nil {
+	if ch.Data == nil || (ch.Data.Settings == nil && ch.Data.LocalSettings == nil) {
 		b.WriteString(emptyState("Settings", "No settings.json found", "Configure in .claude/settings.json"))
 	}
 
-	if !ch.IsGlobal {
+	if !ch.IsGlobal && ch.Data != nil {
 		globalCh := m.findGlobalChannel()
 		if globalCh != nil && globalCh.Data != nil && globalCh.Data.Settings != nil && ch.Data.Settings != nil {
 			diffs := diffSettings(globalCh.Data.Settings, ch.Data.Settings)

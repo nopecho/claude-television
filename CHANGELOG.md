@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0-pre](https://github.com/nopecho/claude-television/compare/v0.3.3-pre...v0.4.0-pre) (2026-03-29)
+
+
+### Features
+
+* improve tui ([#17](https://github.com/nopecho/claude-television/issues/17)) ([c9f24ae](https://github.com/nopecho/claude-television/commit/c9f24ae8290988297c00d56c0871c67a264ce7d7))
+
 ## [0.3.3-pre](https://github.com/nopecho/claude-television/compare/v0.3.2-pre...v0.3.3-pre) (2026-03-23)
 
 

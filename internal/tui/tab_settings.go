@@ -10,19 +10,29 @@ import (
 
 func (m model) renderSettingsTab(ch *channel.Channel) string {
 	var b strings.Builder
+	w := m.detailContentWidth()
 
-	b.WriteString(section("Project"))
-	b.WriteString(kv("path", ch.Path, 8) + "\n")
-	b.WriteString(kv("status", statusIconStr(ch.Status)+" "+string(ch.Status), 8) + "\n")
+	// Project card
+	b.WriteString(card("Project", []string{
+		cardKV("path", ch.Path, 8),
+		cardKV("status", statusIconStr(ch.Status)+" "+string(ch.Status), 8),
+	}, w))
+	b.WriteString("\n")
 
 	if ch.Data != nil && ch.Data.Settings != nil {
-		b.WriteString(renderSettingsSection(ch.Data.Settings, "Project Settings"))
+		b.WriteString(renderSettingsCard(ch.Data.Settings, "Project Settings", w))
+		b.WriteString("\n")
 	}
 	if ch.Data != nil && ch.Data.LocalSettings != nil {
-		b.WriteString(renderSettingsSection(ch.Data.LocalSettings, "Local Settings (override)"))
+		b.WriteString(renderSettingsCard(ch.Data.LocalSettings, "Local Settings (override)", w))
+		b.WriteString("\n")
 	}
 	if ch.Data == nil || (ch.Data.Settings == nil && ch.Data.LocalSettings == nil) {
-		b.WriteString(emptyState("Settings", "No settings.json found", "Configure in .claude/settings.json"))
+		b.WriteString(card("Settings", []string{
+			emptyMsgStyle.Render("No settings.json found"),
+			emptyHintStyle.Render("Configure in .claude/settings.json"),
+		}, w))
+		b.WriteString("\n")
 	}
 
 	if !ch.IsGlobal && ch.Data != nil {
@@ -30,11 +40,13 @@ func (m model) renderSettingsTab(ch *channel.Channel) string {
 		if globalCh != nil && globalCh.Data != nil && globalCh.Data.Settings != nil && ch.Data.Settings != nil {
 			diffs := diffSettings(globalCh.Data.Settings, ch.Data.Settings)
 			if len(diffs) > 0 {
-				b.WriteString(section("Overrides from Global"))
+				var lines []string
 				for _, d := range diffs {
 					val := fmt.Sprintf("%s → %s", labelStyle.Render(d.globalVal), valueStyle.Render(d.projectVal))
-					b.WriteString(kv(d.key, val, 12) + "\n")
+					lines = append(lines, cardKV(d.key, val, 12))
 				}
+				b.WriteString(card("Overrides from Global", lines, w))
+				b.WriteString("\n")
 			}
 		}
 	}
@@ -62,44 +74,51 @@ func diffSettings(global, project *claude.Settings) []settingsDiff {
 	return diffs
 }
 
-func renderSettingsSection(s *claude.Settings, title string) string {
-	var b strings.Builder
-	b.WriteString(section(title))
+func renderSettingsCard(s *claude.Settings, title string, width int) string {
+	var lines []string
 
 	if s.Model != "" {
-		b.WriteString(kv("model", s.Model, 10) + "\n")
+		lines = append(lines, cardKV("model", s.Model, 10))
 	}
 	if s.Language != "" {
-		b.WriteString(kv("language", s.Language, 10) + "\n")
+		lines = append(lines, cardKV("language", s.Language, 10))
 	}
 	if s.TeammateMode != "" {
-		b.WriteString(kv("teammate", s.TeammateMode, 10) + "\n")
+		lines = append(lines, cardKV("teammate", s.TeammateMode, 10))
 	}
 	if s.PlansDirectory != "" {
-		b.WriteString(kv("plans dir", s.PlansDirectory, 10) + "\n")
+		lines = append(lines, cardKV("plans dir", s.PlansDirectory, 10))
 	}
 
+	result := card(title, lines, width)
+
 	if len(s.Env) > 0 {
-		b.WriteString(section("Environment"))
+		var envLines []string
 		for k, v := range s.Env {
-			b.WriteString(sectionLine(fmt.Sprintf("  %s = %s", k, v)) + "\n")
+			envLines = append(envLines, cardKV(k, v, 16))
 		}
+		result += "\n" + card("Environment", envLines, width)
 	}
 
 	if len(s.Permissions.Allow) > 0 || len(s.Permissions.Deny) > 0 {
-		b.WriteString(section("Permissions"))
+		var permLines []string
 		if len(s.Permissions.Allow) > 0 {
-			b.WriteString(sectionLine(fmt.Sprintf("  Allow (%d):", len(s.Permissions.Allow))) + "\n")
+			permLines = append(permLines, sectionTitleStyle.Render("Allow"))
 			for _, p := range s.Permissions.Allow {
-				b.WriteString(sectionLine(fmt.Sprintf("    %s %s", statusHealthy, p)) + "\n")
+				permLines = append(permLines, fmt.Sprintf("  %s %s", statusHealthy, p))
 			}
 		}
 		if len(s.Permissions.Deny) > 0 {
-			b.WriteString(sectionLine(fmt.Sprintf("  Deny (%d):", len(s.Permissions.Deny))) + "\n")
+			if len(s.Permissions.Allow) > 0 {
+				permLines = append(permLines, "")
+			}
+			permLines = append(permLines, sectionTitleStyle.Render("Deny"))
 			for _, p := range s.Permissions.Deny {
-				b.WriteString(sectionLine(fmt.Sprintf("    %s %s", statusError, p)) + "\n")
+				permLines = append(permLines, fmt.Sprintf("  %s %s", statusError, p))
 			}
 		}
+		result += "\n" + card("Permissions", permLines, width)
 	}
-	return b.String()
+
+	return result
 }

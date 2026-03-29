@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+var deprecatedSettingKeys = []string{
+	"apiKeyHelper",
+	"disableAutoupdater",
+	"autoUpdaterStatus",
+}
+
 type Severity int
 
 const (
@@ -24,6 +30,8 @@ type HealthInput struct {
 	Settings   *Settings
 	MCPServers []MCPServer
 	Hooks      []HookDetail
+	Plugins    []Plugin
+	GitError   error
 }
 
 var dangerousPermissions = []string{
@@ -33,14 +41,18 @@ var dangerousPermissions = []string{
 func CheckHealth(input *HealthInput) []HealthIssue {
 	var issues []HealthIssue
 
+	issues = append(issues, checkGitError(input.GitError)...)
 	if input.ClaudeMD != nil {
 		issues = append(issues, checkClaudeMD(input.ClaudeMD)...)
 	}
 	if input.Settings != nil {
 		issues = append(issues, checkPermissions(input.Settings)...)
+		issues = append(issues, checkDeprecatedSettings(input.Settings)...)
 	}
 	issues = append(issues, checkMCPServers(input.MCPServers)...)
+	issues = append(issues, checkMCPServerDuplicates(input.MCPServers)...)
 	issues = append(issues, checkHooks(input.Hooks)...)
+	issues = append(issues, checkPluginConflicts(input.Plugins)...)
 
 	return issues
 }
@@ -103,6 +115,63 @@ func checkHooks(hooks []HookDetail) []HealthIssue {
 				Code:     "hook-command-missing",
 				Severity: SeverityError,
 				Message:  "Hook '" + h.Event + "': command not found: " + cmd,
+			})
+		}
+	}
+	return issues
+}
+
+func checkGitError(err error) []HealthIssue {
+	if err == nil {
+		return nil
+	}
+	return []HealthIssue{{
+		Code:     "git-error",
+		Severity: SeverityError,
+		Message:  "git command failed: " + err.Error(),
+	}}
+}
+
+func checkPluginConflicts(plugins []Plugin) []HealthIssue {
+	var issues []HealthIssue
+	for _, p := range plugins {
+		if p.Installed && !p.Enabled {
+			issues = append(issues, HealthIssue{
+				Code:     "plugin-not-enabled",
+				Severity: SeverityWarning,
+				Message:  "Plugin '" + p.Name + "' is installed but not enabled",
+			})
+		}
+	}
+	return issues
+}
+
+func checkDeprecatedSettings(s *Settings) []HealthIssue {
+	var issues []HealthIssue
+	for _, key := range deprecatedSettingKeys {
+		if _, ok := s.Raw[key]; ok {
+			issues = append(issues, HealthIssue{
+				Code:     "deprecated-setting",
+				Severity: SeverityWarning,
+				Message:  "Deprecated setting in use: " + key,
+			})
+		}
+	}
+	return issues
+}
+
+func checkMCPServerDuplicates(servers []MCPServer) []HealthIssue {
+	seen := make(map[string][]string)
+	for _, s := range servers {
+		seen[s.Name] = append(seen[s.Name], s.Source)
+	}
+	var issues []HealthIssue
+	for name, sources := range seen {
+		if len(sources) > 1 {
+			issues = append(issues, HealthIssue{
+				Code:     "mcp-server-duplicate",
+				Severity: SeverityWarning,
+				Message:  "MCP server '" + name + "' defined in multiple sources: " + strings.Join(sources, ", "),
 			})
 		}
 	}

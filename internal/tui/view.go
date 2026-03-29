@@ -18,25 +18,12 @@ func (m model) View() string {
 	if detailWidth < 10 {
 		detailWidth = 10
 	}
-	contentHeight := m.height - 7 // header + tab bar + help + borders
+	contentHeight := m.height - 5 // header + help + borders
 	if contentHeight < 1 {
 		contentHeight = 1
 	}
 
-	header := titleStyle.Render("ctv")
-	if m.searching || m.contentSearching || m.grouping {
-		header += "  " + m.searchInput.View()
-		if m.contentSearching {
-			header += " " + labelStyle.Render("(content search)")
-		} else if m.grouping {
-			header += " " + labelStyle.Render("(enter to set group, empty to clear)")
-		} else {
-			header += " " + labelStyle.Render(fmt.Sprintf("(%d matches)", len(m.filtered)))
-		}
-	} else {
-		header += "  " + m.renderSummary()
-	}
-	header += "\n"
+	header := m.renderHeader()
 
 	// Channel list panel
 	listContent := m.renderChannelList(contentHeight)
@@ -102,8 +89,64 @@ func (m model) View() string {
 	return header + content + "\n" + help
 }
 
-func (m model) renderSummary() string {
-	healthy, warning, errCount, issues := 0, 0, 0, 0
+// renderHeader renders the unified header bar.
+func (m model) renderHeader() string {
+	if m.searching || m.contentSearching || m.grouping {
+		left := headerAppStyle.Render(" ctv")
+		search := "  " + m.searchInput.View()
+		if m.contentSearching {
+			if m.searchInput.Value() == "" {
+				search += " " + labelStyle.Render("(content search)")
+			} else if len(m.contentMatches) == 0 {
+				search += " " + labelStyle.Render("(no matches)")
+			} else {
+				search += " " + labelStyle.Render(fmt.Sprintf("(%d/%d matches)", m.contentMatchIdx+1, len(m.contentMatches)))
+			}
+		} else if m.grouping {
+			search += " " + labelStyle.Render("(enter to set group, empty to clear)")
+		} else {
+			search += " " + labelStyle.Render(fmt.Sprintf("(%d matches)", len(m.filtered)))
+		}
+		return left + search + "\n"
+	}
+
+	sep := headerSepStyle.Render(" ── ")
+
+	left := headerAppStyle.Render(" ctv")
+
+	// Selected channel name
+	ch := m.selectedChannel()
+	channelName := ""
+	if ch != nil {
+		channelName = headerChannelStyle.Render(ch.Name)
+	}
+
+	// Status badges
+	healthy, warning, errCount := m.countStatuses()
+	var badges []string
+	if healthy > 0 {
+		badges = append(badges, headerBadgeHealthy.Render(fmt.Sprintf("● %d", healthy)))
+	}
+	if warning > 0 {
+		badges = append(badges, headerBadgeWarning.Render(fmt.Sprintf("○ %d", warning)))
+	}
+	if errCount > 0 {
+		badges = append(badges, headerBadgeError.Render(fmt.Sprintf("✕ %d", errCount)))
+	}
+
+	total := len(m.channels)
+	for _, ch := range m.channels {
+		if ch.IsGlobal {
+			total--
+		}
+	}
+	countStr := headerCountStyle.Render(fmt.Sprintf("%d channels", total))
+
+	header := left + sep + channelName + sep + strings.Join(badges, "  ") + sep + countStr
+	return header + "\n"
+}
+
+func (m model) countStatuses() (healthy, warning, errCount int) {
 	for _, ch := range m.channels {
 		if ch.IsGlobal {
 			continue
@@ -116,36 +159,48 @@ func (m model) renderSummary() string {
 		case channel.StatusError:
 			errCount++
 		}
-		if ch.Data != nil {
-			issues += len(ch.Data.HealthIssues)
-		}
 	}
-	summary := labelStyle.Render(fmt.Sprintf("%d channels", healthy+warning+errCount))
-	if errCount > 0 {
-		summary += " " + lipgloss.NewStyle().Foreground(errorColor).Render(fmt.Sprintf("%d err", errCount))
-	}
-	if issues > 0 {
-		summary += " " + lipgloss.NewStyle().Foreground(warningColor).Render(fmt.Sprintf("%d issues", issues))
-	}
-	return summary
+	return
 }
 
 func (m model) renderDetailTabs() string {
 	var tabs []string
-	var underlines []string
+
+	ch := m.selectedChannel()
 
 	for i, name := range detailTabNames {
-		tabWidth := len(name) + 2 // +2 for Padding(0, 1) on both sides
+		badge := m.tabBadge(ch, DetailTab(i))
+		label := fmt.Sprintf("%d %s", i+1, name)
+		if badge != "" {
+			label += " " + tabBadgeStyle.Render(badge)
+		}
 		if DetailTab(i) == m.detailTab {
-			tabs = append(tabs, activeTabStyle.Render(name))
-			underlines = append(underlines, " "+tabUnderlineStyle.Render(strings.Repeat("━", len(name)))+" ")
+			tabs = append(tabs, activeTabStyle.Render(label))
 		} else {
-			tabs = append(tabs, inactiveTabStyle.Render(name))
-			underlines = append(underlines, strings.Repeat(" ", tabWidth))
+			tabs = append(tabs, inactiveTabStyle.Render(label))
 		}
 	}
 
-	return " " + strings.Join(tabs, "") + "\n " + strings.Join(underlines, "")
+	return " " + strings.Join(tabs, "")
+}
+
+// tabBadge returns a badge string for tabs with issues.
+func (m model) tabBadge(ch *channel.Channel, tab DetailTab) string {
+	if ch == nil || ch.Data == nil {
+		return ""
+	}
+	switch tab {
+	case TabHealth:
+		count := len(ch.Data.HealthIssues)
+		if count > 0 {
+			return fmt.Sprintf("%d", count)
+		}
+	case TabGit:
+		if ch.Data.GitInfo != nil && ch.Data.GitInfo.DirtyFiles > 0 {
+			return "●"
+		}
+	}
+	return ""
 }
 
 func (m model) renderHelpBar() string {
@@ -153,14 +208,16 @@ func (m model) renderHelpBar() string {
 
 	if m.searching || m.contentSearching || m.grouping {
 		entries = []string{
-			helpEntry("type", "input"),
 			helpEntry("Enter", "confirm"),
 			helpEntry("Esc", "cancel"),
+		}
+		if m.contentSearching && len(m.contentMatches) > 0 {
+			entries = append(entries, helpEntry("n/N", "next/prev"))
 		}
 	} else if m.focus == detailPanel {
 		entries = []string{
 			helpEntry("j/k", "scroll"),
-			helpEntry("h/l", "tabs"),
+			helpEntry("1-8", "tabs"),
 			helpEntry("Tab", "list"),
 			helpEntry("/", "search"),
 			helpEntry("?", "content"),
@@ -170,6 +227,7 @@ func (m model) renderHelpBar() string {
 	} else {
 		entries = []string{
 			helpEntry("j/k", "move"),
+			helpEntry("1-8", "tabs"),
 			helpEntry("l/Tab", "detail"),
 			helpEntry("/", "search"),
 			helpEntry("?", "content"),
@@ -180,14 +238,27 @@ func (m model) renderHelpBar() string {
 		}
 	}
 
-	return "  " + strings.Join(entries, "  ")
+	helpText := "  " + strings.Join(entries, "  ")
+
+	// Add scroll position on the right
+	if !m.searching && !m.contentSearching && !m.grouping {
+		if m.viewport.TotalLineCount() > m.viewport.VisibleLineCount() {
+			pct := int(m.viewport.ScrollPercent() * 100)
+			scrollStr := helpScrollStyle.Render(fmt.Sprintf("%d%%", pct))
+			padding := m.width - lipgloss.Width(helpText) - lipgloss.Width(scrollStr) - 2
+			if padding > 0 {
+				helpText += strings.Repeat(" ", padding) + scrollStr
+			}
+		}
+	}
+
+	return helpText
 }
 
 // borderCharWidth is the byte length of the "─" UTF-8 character used in borders.
 var borderCharWidth = len("─")
 
 // injectBorderTitle places a styled title string into the top border line.
-// Uses lipgloss.Width for ANSI-safe visual width calculation.
 func injectBorderTitle(box, title string) string {
 	if title == "" {
 		return box
@@ -202,7 +273,6 @@ func injectBorderTitle(box, title string) string {
 		return box
 	}
 	insertAt := cornerEnd + borderCharWidth
-	// Calculate how many border bytes to replace based on visual width
 	visualWidth := lipgloss.Width(title)
 	replaceBytes := visualWidth * borderCharWidth
 	if insertAt+replaceBytes > len(first) {
@@ -213,7 +283,6 @@ func injectBorderTitle(box, title string) string {
 }
 
 // injectBorderFooter places a styled string into the bottom border line.
-// Uses lipgloss.Width for ANSI-safe visual width calculation.
 func injectBorderFooter(box, footer string) string {
 	if footer == "" {
 		return box

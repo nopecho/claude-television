@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (m model) renderChannelList(height int) string {
@@ -11,7 +13,11 @@ func (m model) renderChannelList(height int) string {
 	count := len(m.filtered)
 
 	if count == 0 {
-		b.WriteString(channelItemStyle.Render("  No channels found."))
+		// Empty state with friendly message
+		b.WriteString("\n")
+		b.WriteString(channelItemStyle.Render(emptyMsgStyle.Render("  No channels found.")))
+		b.WriteString("\n\n")
+		b.WriteString(channelItemStyle.Render(emptyHintStyle.Render("  Press Esc to clear")))
 		return b.String()
 	}
 
@@ -48,6 +54,7 @@ func (m model) renderChannelList(height int) string {
 		}
 	}
 
+	// Selected items take 2 lines (name + path), so adjust visible height
 	visibleHeight := height
 	if visibleHeight < 1 {
 		visibleHeight = 1
@@ -56,12 +63,28 @@ func (m model) renderChannelList(height int) string {
 	if startIdx < 0 {
 		startIdx = 0
 	}
-	if startIdx+visibleHeight > len(items) {
-		startIdx = len(items) - visibleHeight
-		if startIdx < 0 {
-			startIdx = 0
+
+	// Count display lines from startIdx to find how many items fit
+	maxItems := startIdx + len(items) // upper bound
+	displayLines := 0
+	for i := startIdx; i < len(items); i++ {
+		if !items[i].isHeader && i == cursorDisplayIdx {
+			displayLines += 2 // selected item takes 2 lines
+		} else {
+			displayLines++
+		}
+		if displayLines >= visibleHeight {
+			maxItems = i + 1
+			break
 		}
 	}
+
+	// Adjust start if we hit the end
+	if maxItems > len(items) {
+		maxItems = len(items)
+	}
+
+	listWidth := m.listWidth() - 2 // account for border padding
 
 	channelIdx := 0
 	for i, item := range items {
@@ -71,12 +94,22 @@ func (m model) renderChannelList(height int) string {
 			}
 			continue
 		}
-		if i >= startIdx+visibleHeight {
+		if i >= maxItems {
 			break
 		}
 
 		if item.isHeader {
-			b.WriteString(groupHeaderStyle.Render(fmt.Sprintf(" [%s]", item.header)))
+			// Group divider style: ── group ──────
+			label := fmt.Sprintf(" %s ", item.header)
+			labelWidth := lipgloss.Width(label)
+			remaining := listWidth - labelWidth - 2
+			if remaining < 2 {
+				remaining = 2
+			}
+			divider := groupDividerStyle.Render("──") +
+				groupHeaderStyle.Render(label) +
+				groupDividerStyle.Render(strings.Repeat("─", remaining))
+			b.WriteString(divider)
 			b.WriteString("\n")
 			continue
 		}
@@ -91,15 +124,31 @@ func (m model) renderChannelList(height int) string {
 			prefix = pinIcon + " "
 		}
 
-		name := truncate(ch.Name, 22)
-		line := fmt.Sprintf("%s%s %s", prefix, icon, name)
+		// Error badge
+		badge := ""
+		if ch.Data != nil && len(ch.Data.HealthIssues) > 0 {
+			badge = " " + channelBadgeStyle.Render(fmt.Sprintf("⚠%d", len(ch.Data.HealthIssues)))
+		}
+
+		name := truncate(ch.Name, listWidth-8)
+		line := fmt.Sprintf("%s%s %s%s", prefix, icon, name, badge)
 
 		if channelIdx == m.channelCursor {
-			b.WriteString(channelSelectedStyle.Render("▸" + line))
+			// Selected: background highlight + bold + path on second line
+			b.WriteString(channelSelectedStyle.
+				Width(listWidth).
+				Render("▸" + line))
+			b.WriteString("\n")
+			// Show path below selected item
+			shortPath := truncate(ch.Path, listWidth-4)
+			b.WriteString(channelSelectedPathStyle.
+				Width(listWidth).
+				Render("   " + shortPath))
+			b.WriteString("\n")
 		} else {
 			b.WriteString(channelItemStyle.Render(" " + line))
+			b.WriteString("\n")
 		}
-		b.WriteString("\n")
 		channelIdx++
 	}
 

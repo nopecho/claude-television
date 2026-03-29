@@ -27,3 +27,13 @@ func (m model) renderDetailContentString() string {
 	}
 	return ""
 }
+
+// detailContentWidth returns the available width for detail content cards.
+func (m model) detailContentWidth() int {
+	listWidth := m.listWidth()
+	w := m.width - listWidth - 6 // borders + padding
+	if w < 20 {
+		w = 20
+	}
+	return w
+}

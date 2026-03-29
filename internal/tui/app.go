@@ -44,6 +44,8 @@ type model struct {
 	searchInput      textinput.Model
 	searching        bool
 	contentSearching bool
+	contentMatches   []int
+	contentMatchIdx  int
 	grouping         bool
 	filtered         []int
 	prevCursor       int

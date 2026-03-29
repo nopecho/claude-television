@@ -23,6 +23,14 @@ const (
 	keyScrollUp
 	keyContentSearch
 	keyGroup
+	keyTab1
+	keyTab2
+	keyTab3
+	keyTab4
+	keyTab5
+	keyTab6
+	keyTab7
+	keyTab8
 )
 
 func parseKey(msg tea.KeyMsg) keyAction {
@@ -61,6 +69,22 @@ func parseKey(msg tea.KeyMsg) keyAction {
 		return keyContentSearch
 	case "g":
 		return keyGroup
+	case "1":
+		return keyTab1
+	case "2":
+		return keyTab2
+	case "3":
+		return keyTab3
+	case "4":
+		return keyTab4
+	case "5":
+		return keyTab5
+	case "6":
+		return keyTab6
+	case "7":
+		return keyTab7
+	case "8":
+		return keyTab8
 	}
 	return keyNone
 }

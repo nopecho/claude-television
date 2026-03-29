@@ -9,27 +9,41 @@ import (
 
 func (m model) renderGitTab(ch *channel.Channel) string {
 	var b strings.Builder
+	w := m.detailContentWidth()
 
 	if ch.Data.GitInfo == nil {
-		return emptyState("Git", "Not a git repository", "")
+		b.WriteString(card("Git", []string{
+			emptyMsgStyle.Render("Not a git repository"),
+		}, w))
+		return b.String()
 	}
 
 	git := ch.Data.GitInfo
-	b.WriteString(section("Branch"))
-	b.WriteString(sectionLine("  "+valueStyle.Render(git.Branch)) + "\n")
 
+	// Branch card
+	b.WriteString(card("Branch", []string{
+		valueStyle.Render(git.Branch),
+	}, w))
+	b.WriteString("\n")
+
+	// Last Commit card
 	if git.LastCommit != "" {
-		b.WriteString(section("Last Commit"))
-		b.WriteString(kv("hash", git.LastCommit, 8) + "\n")
-		b.WriteString(kv("message", git.LastCommitMsg, 8) + "\n")
-		b.WriteString(kv("date", git.LastCommitAt, 8) + "\n")
+		b.WriteString(card("Last Commit", []string{
+			cardKV("hash", git.LastCommit, 8),
+			cardKV("message", git.LastCommitMsg, 8),
+			cardKV("date", git.LastCommitAt, 8),
+		}, w))
+		b.WriteString("\n")
 	}
 
-	b.WriteString(section("Working Tree"))
+	// Working Tree card
+	var treeLines []string
 	if git.DirtyFiles > 0 {
-		b.WriteString(sectionLine(fmt.Sprintf("  %s %d dirty files", statusWarning, git.DirtyFiles)) + "\n")
+		treeLines = append(treeLines, fmt.Sprintf("%s %d dirty files", statusWarning, git.DirtyFiles))
 	} else {
-		b.WriteString(sectionLine(fmt.Sprintf("  %s clean", statusHealthy)) + "\n")
+		treeLines = append(treeLines, fmt.Sprintf("%s clean", statusHealthy))
 	}
+	b.WriteString(card("Working Tree", treeLines, w))
+
 	return b.String()
 }

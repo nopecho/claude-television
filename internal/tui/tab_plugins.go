@@ -9,38 +9,53 @@ import (
 
 func (m model) renderPluginsTab(ch *channel.Channel) string {
 	var b strings.Builder
+	w := m.detailContentWidth()
 
 	if len(ch.Data.Plugins) == 0 {
-		b.WriteString(emptyState("Plugins", "No plugins installed", "Install plugins via Claude Code marketplace"))
+		b.WriteString(card("Plugins", []string{
+			emptyMsgStyle.Render("No plugins installed"),
+			emptyHintStyle.Render("Install plugins via Claude Code marketplace"),
+		}, w))
+		b.WriteString("\n")
 	} else {
-		b.WriteString(section(fmt.Sprintf("Plugins (%d)", len(ch.Data.Plugins))))
 		for _, p := range ch.Data.Plugins {
 			icon := boolIcon(p.Enabled)
-			b.WriteString(sectionEmpty() + "\n")
-			b.WriteString(sectionLine(fmt.Sprintf("  %s %s", icon, sectionTitleStyle.Render(p.Name))) + "\n")
+			var lines []string
+			lines = append(lines, fmt.Sprintf("%s %s", icon, labelStyle.Render(func() string {
+				if p.Enabled {
+					return "enabled"
+				}
+				return "disabled"
+			}())))
 			if p.Marketplace != "" {
-				b.WriteString(kv("marketplace", p.Marketplace, 12) + "\n")
+				lines = append(lines, cardKV("marketplace", p.Marketplace, 12))
 			}
 			if p.Version != "" {
-				b.WriteString(kv("version", p.Version, 12) + "\n")
+				lines = append(lines, cardKV("version", p.Version, 12))
 			}
 			if p.InstallPath != "" {
-				b.WriteString(kv("path", p.InstallPath, 12) + "\n")
+				lines = append(lines, cardKV("path", p.InstallPath, 12))
 			}
 			if !p.Installed {
-				b.WriteString(sectionLine("    "+labelStyle.Render("(not installed)")) + "\n")
+				lines = append(lines, labelStyle.Render("(not installed)"))
 			}
+			b.WriteString(card(p.Name, lines, w))
+			b.WriteString("\n")
 		}
 	}
 
 	if len(ch.Data.LocalSkills) == 0 {
-		b.WriteString(emptyState("Skills", "No local skills found", "Skills are located in .gemini/skills/"))
+		b.WriteString(card("Skills", []string{
+			emptyMsgStyle.Render("No local skills found"),
+			emptyHintStyle.Render("Skills are located in .gemini/skills/"),
+		}, w))
 	} else {
-		b.WriteString(section(fmt.Sprintf("Skills (%d)", len(ch.Data.LocalSkills))))
+		var lines []string
 		for _, s := range ch.Data.LocalSkills {
-			b.WriteString(sectionLine(fmt.Sprintf("  %s %s", statusHealthy, valueStyle.Render(s.Name))) + "\n")
-			b.WriteString(kv("path", s.Path, 6) + "\n")
+			lines = append(lines, fmt.Sprintf("%s %s", statusHealthy, valueStyle.Render(s.Name)))
+			lines = append(lines, fmt.Sprintf("  %s", labelStyle.Render(s.Path)))
 		}
+		b.WriteString(card(fmt.Sprintf("Skills (%d)", len(ch.Data.LocalSkills)), lines, w))
 	}
 
 	return b.String()

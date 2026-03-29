@@ -10,10 +10,15 @@ import (
 
 func (m model) renderHealthTab(ch *channel.Channel) string {
 	var b strings.Builder
+	w := m.detailContentWidth()
 
 	issues := ch.Data.HealthIssues
 	if len(issues) == 0 {
-		return emptyState("Health Check", "All checks passed", "No issues found in project configuration")
+		b.WriteString(card("Health Check", []string{
+			statusHealthy + " " + valueStyle.Render("All checks passed"),
+			emptyHintStyle.Render("No issues found in project configuration"),
+		}, w))
+		return b.String()
 	}
 
 	errors := 0
@@ -27,30 +32,39 @@ func (m model) renderHealthTab(ch *channel.Channel) string {
 		}
 	}
 
-	b.WriteString(section("Summary"))
+	// Summary card
+	var summaryLines []string
 	if errors > 0 {
-		b.WriteString(sectionLine(fmt.Sprintf("  %s %d errors", statusError, errors)) + "\n")
+		summaryLines = append(summaryLines, fmt.Sprintf("%s %d errors", statusError, errors))
 	}
 	if warnings > 0 {
-		b.WriteString(sectionLine(fmt.Sprintf("  %s %d warnings", statusWarning, warnings)) + "\n")
+		summaryLines = append(summaryLines, fmt.Sprintf("%s %d warnings", statusWarning, warnings))
 	}
+	b.WriteString(card("Summary", summaryLines, w))
+	b.WriteString("\n")
 
+	// Errors card
 	if errors > 0 {
-		b.WriteString(section("Errors"))
+		var errLines []string
 		for _, i := range issues {
 			if i.Severity == claude.SeverityError {
-				b.WriteString(sectionLine(fmt.Sprintf("  %s %s", statusError, i.Message)) + "\n")
+				errLines = append(errLines, fmt.Sprintf("%s %s", statusError, i.Message))
 			}
 		}
+		b.WriteString(card("Errors", errLines, w))
+		b.WriteString("\n")
 	}
 
+	// Warnings card
 	if warnings > 0 {
-		b.WriteString(section("Warnings"))
+		var warnLines []string
 		for _, i := range issues {
 			if i.Severity == claude.SeverityWarning {
-				b.WriteString(sectionLine(fmt.Sprintf("  %s %s", statusWarning, i.Message)) + "\n")
+				warnLines = append(warnLines, fmt.Sprintf("%s %s", statusWarning, i.Message))
 			}
 		}
+		b.WriteString(card("Warnings", warnLines, w))
+		b.WriteString("\n")
 	}
 
 	return b.String()
